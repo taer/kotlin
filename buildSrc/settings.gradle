@@ -33,8 +33,11 @@ include "prepare-deps"
 if (buildProperties.includeCidrPlugins) {
     logger.info("Including CIDR plugins in buildSrc/settings.gradle")
     include ":prepare-deps:kotlin-native-platform-deps"
+    include ":prepare-deps:cocoa-common-binaries"
     project(":prepare-deps:kotlin-native-platform-deps").projectDir =
             file("${buildProperties.propertiesProvider.rootProjectDir}/kotlin-ultimate/buildSrc/prepare-deps/kotlin-native-platform-deps")
+    project(":prepare-deps:cocoa-common-binaries").projectDir =
+            file("${buildProperties.propertiesProvider.rootProjectDir}/kotlin-ultimate/buildSrc/prepare-deps/cocoa-common-binaries")
 } else {
     logger.info("NOT including CIDR plugins in buildSrc/settings.gradle")
 }

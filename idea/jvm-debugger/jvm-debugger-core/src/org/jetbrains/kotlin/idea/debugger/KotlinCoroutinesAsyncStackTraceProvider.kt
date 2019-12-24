@@ -10,6 +10,7 @@ import com.intellij.debugger.engine.SuspendContextImpl
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.jdi.StackFrameProxyImpl
 import com.intellij.debugger.memory.utils.StackFrameItem
+import com.intellij.openapi.util.registry.Registry
 import com.sun.jdi.*
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
 
@@ -18,12 +19,19 @@ class KotlinCoroutinesAsyncStackTraceProvider : KotlinCoroutinesAsyncStackTraceP
         const val DEBUG_METADATA_KT = "kotlin.coroutines.jvm.internal.DebugMetadataKt"
     }
 
+    private fun isKotlinAsyncStackTraceEnabled(): Boolean {
+        return Registry.`is`("kotlin.debugger.async.stack.trace")
+    }
 
     override fun getAsyncStackTrace(stackFrame: JavaStackFrame, suspendContext: SuspendContextImpl): List<StackFrameItem>? {
         return hopelessAware { getAsyncStackTraceSafe(stackFrame.stackFrameProxy, suspendContext) }
     }
 
     fun getAsyncStackTraceSafe(frameProxy: StackFrameProxyImpl, suspendContext: SuspendContextImpl): List<StackFrameItem>? {
+        if (!isKotlinAsyncStackTraceEnabled()) {
+            return null
+        }
+
         val location = frameProxy.location()
         if (!location.isInKotlinSources()) {
             return null

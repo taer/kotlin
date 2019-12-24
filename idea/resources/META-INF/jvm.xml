@@ -194,6 +194,11 @@
                    description="Enable debugging for coroutines in Kotlin/JVM"
                    defaultValue="false"
                    restartRequired="false"/>
+
+      <registryKey key="kotlin.debugger.async.stack.trace"
+                   description="Enable Async stack trace support for Kotlin frames in Kotlin/JVM"
+                   defaultValue="true"
+                   restartRequired="false"/>
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.uast">

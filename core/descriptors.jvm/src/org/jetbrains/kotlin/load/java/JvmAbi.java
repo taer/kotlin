@@ -49,9 +49,11 @@ public final class JvmAbi {
     public static final ClassId REFLECTION_FACTORY_IMPL = ClassId.topLevel(new FqName("kotlin.reflect.jvm.internal.ReflectionFactoryImpl"));
 
     public static final int LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER = 65100;
+    public static final int COROUTINE_BEFORE_SUSPEND_SYNTHETIC_LINE_NUMBER = 65101;
 
     public static final List<Integer> SYNTHETIC_MARKER_LINE_NUMBERS = CollectionsKt.listOf(
-            LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER
+            LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER,
+            COROUTINE_BEFORE_SUSPEND_SYNTHETIC_LINE_NUMBER
     );
 
     public static final String LOCAL_VARIABLE_NAME_PREFIX_INLINE_ARGUMENT = "$i$a$";

@@ -26,7 +26,6 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.builtIns
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
 import org.jetbrains.kotlin.types.typeUtil.builtIns
-import java.util.*
 
 data class ApproximationBounds<out T>(
     val lower: T,
@@ -36,7 +35,8 @@ data class ApproximationBounds<out T>(
 private class TypeArgument(
     val typeParameter: TypeParameterDescriptor,
     val inProjection: KotlinType,
-    val outProjection: KotlinType
+    val outProjection: KotlinType,
+    val isStarProjection: Boolean
 ) {
     val isConsistent: Boolean
         get() = KotlinTypeChecker.DEFAULT.isSubtypeOf(inProjection, outProjection)
@@ -65,9 +65,9 @@ private fun TypeArgument.toTypeProjection(): TypeProjection {
 
 private fun TypeProjection.toTypeArgument(typeParameter: TypeParameterDescriptor) =
     when (TypeSubstitutor.combine(typeParameter.variance, this)) {
-        Variance.INVARIANT -> TypeArgument(typeParameter, type, type)
-        Variance.IN_VARIANCE -> TypeArgument(typeParameter, type, typeParameter.builtIns.nullableAnyType)
-        Variance.OUT_VARIANCE -> TypeArgument(typeParameter, typeParameter.builtIns.nothingType, type)
+        Variance.INVARIANT -> TypeArgument(typeParameter, type, type, isStarProjection)
+        Variance.IN_VARIANCE -> TypeArgument(typeParameter, type, typeParameter.builtIns.nullableAnyType, isStarProjection)
+        Variance.OUT_VARIANCE -> TypeArgument(typeParameter, typeParameter.builtIns.nothingType, type, isStarProjection)
     }
 
 fun approximateCapturedTypesIfNecessary(typeProjection: TypeProjection?, approximateContravariant: Boolean): TypeProjection? {
@@ -75,7 +75,7 @@ fun approximateCapturedTypesIfNecessary(typeProjection: TypeProjection?, approxi
     if (typeProjection.isStarProjection) return typeProjection
 
     val type = typeProjection.type
-    if (!TypeUtils.contains(type, { it.isCaptured() })) {
+    if (!TypeUtils.contains(type) { it.isCaptured() }) {
         return typeProjection
     }
     val howThisTypeIsUsed = typeProjection.projectionKind
@@ -140,38 +140,37 @@ fun approximateCapturedTypes(type: KotlinType): ApproximationBounds<KotlinType> 
     if (type.arguments.isEmpty() || type.arguments.size != typeConstructor.parameters.size) {
         return ApproximationBounds(type, type)
     }
-    val lowerBoundArguments = ArrayList<TypeArgument>()
-    val upperBoundArguments = ArrayList<TypeArgument>()
-    for ((typeProjection, typeParameter) in type.arguments.zip(typeConstructor.parameters)) {
-        val typeArgument = typeProjection.toTypeArgument(typeParameter)
-
-        // Protection from infinite recursion caused by star projection
-        if (typeProjection.isStarProjection) {
-            lowerBoundArguments.add(typeArgument)
-            upperBoundArguments.add(typeArgument)
-        } else {
-            val (lower, upper) = approximateProjection(typeArgument)
-            lowerBoundArguments.add(lower)
-            upperBoundArguments.add(upper)
-        }
+    val arguments = type.arguments.zip(typeConstructor.parameters).map { (typeProjection, typeParameter) ->
+        approximateProjection(typeProjection.toTypeArgument(typeParameter))
     }
-    val lowerBoundIsTrivial = lowerBoundArguments.any { !it.isConsistent }
+    val lowerBoundIsTrivial = arguments.any { !it.lower.isConsistent }
     return ApproximationBounds(
-        if (lowerBoundIsTrivial) type.builtIns.nothingType else type.replaceTypeArguments(lowerBoundArguments),
-        type.replaceTypeArguments(upperBoundArguments)
+        if (lowerBoundIsTrivial) type.builtIns.nothingType else
+            type.replaceTypeArguments(arguments, ApproximationBounds<TypeArgument>::lower),
+        type.replaceTypeArguments(arguments, ApproximationBounds<TypeArgument>::upper)
     )
 }
 
-private fun KotlinType.replaceTypeArguments(newTypeArguments: List<TypeArgument>): KotlinType {
+private inline fun KotlinType.replaceTypeArguments(
+    newTypeArguments: List<ApproximationBounds<TypeArgument>>,
+    bound: (ApproximationBounds<TypeArgument>) -> TypeArgument
+): KotlinType {
     assert(arguments.size == newTypeArguments.size) { "Incorrect type arguments $newTypeArguments" }
-    return replace(newTypeArguments.map { it.toTypeProjection() })
+    return replace(newTypeArguments.map { bounds ->
+        val argument = bound(bounds)
+        if (argument.isStarProjection) StarProjectionImpl(argument.typeParameter) else argument.toTypeProjection()
+    })
 }
 
 private fun approximateProjection(typeArgument: TypeArgument): ApproximationBounds<TypeArgument> {
+    // Protection from infinite recursion caused by star projection
+    if (typeArgument.isStarProjection) {
+        return ApproximationBounds(typeArgument, typeArgument)
+    }
     val (inLower, inUpper) = approximateCapturedTypes(typeArgument.inProjection)
     val (outLower, outUpper) = approximateCapturedTypes(typeArgument.outProjection)
     return ApproximationBounds(
-        lower = TypeArgument(typeArgument.typeParameter, inUpper, outLower),
-        upper = TypeArgument(typeArgument.typeParameter, inLower, outUpper)
+        lower = TypeArgument(typeArgument.typeParameter, inUpper, outLower, isStarProjection = false),
+        upper = TypeArgument(typeArgument.typeParameter, inLower, outUpper, isStarProjection = false)
     )
 }

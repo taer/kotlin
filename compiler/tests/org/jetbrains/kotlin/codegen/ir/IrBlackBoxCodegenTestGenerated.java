@@ -23636,11 +23636,6 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
                 runTest("compiler/testData/codegen/box/reflection/typeOf/classes.kt");
             }
 
-            @TestMetadata("classesIR.kt")
-            public void testClassesIR() throws Exception {
-                runTest("compiler/testData/codegen/box/reflection/typeOf/classesIR.kt");
-            }
-
             @TestMetadata("inlineClasses.kt")
             public void testInlineClasses() throws Exception {
                 runTest("compiler/testData/codegen/box/reflection/typeOf/inlineClasses.kt");
@@ -23686,11 +23681,6 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
                     runTest("compiler/testData/codegen/box/reflection/typeOf/noReflect/classes.kt");
                 }
 
-                @TestMetadata("classesIR.kt")
-                public void testClassesIR() throws Exception {
-                    runTest("compiler/testData/codegen/box/reflection/typeOf/noReflect/classesIR.kt");
-                }
-
                 @TestMetadata("inlineClasses.kt")
                 public void testInlineClasses() throws Exception {
                     runTest("compiler/testData/codegen/box/reflection/typeOf/noReflect/inlineClasses.kt");
@@ -23699,11 +23689,6 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
                 @TestMetadata("typeReferenceEqualsHashCode.kt")
                 public void testTypeReferenceEqualsHashCode() throws Exception {
                     runTest("compiler/testData/codegen/box/reflection/typeOf/noReflect/typeReferenceEqualsHashCode.kt");
-                }
-
-                @TestMetadata("typeReferenceEqualsHashCodeIR.kt")
-                public void testTypeReferenceEqualsHashCodeIR() throws Exception {
-                    runTest("compiler/testData/codegen/box/reflection/typeOf/noReflect/typeReferenceEqualsHashCodeIR.kt");
                 }
             }
         }

@@ -68,13 +68,12 @@ class QualifiedReceiverTowerDataConsumer<T : AbstractFirBasedSymbol<*>>(
             dispatchReceiverValue: ReceiverValue?,
             implicitExtensionReceiverValue: ImplicitReceiverValue<*>?,
             builtInExtensionFunctionReceiverValue: ReceiverValue?
-        ): ProcessorAction {
+        ) {
             assert(dispatchReceiverValue == null)
             resultCollector.consumeCandidate(
                 group,
                 candidateFactory.createCandidate(symbol, explicitReceiverKind = ExplicitReceiverKind.NO_EXPLICIT_RECEIVER)
             )
-            return ProcessorAction.NEXT
         }
     }
 
@@ -201,7 +200,7 @@ class ExplicitReceiverTowerDataConsumer<T : AbstractFirBasedSymbol<*>>(
             dispatchReceiverValue: ReceiverValue?,
             implicitExtensionReceiverValue: ImplicitReceiverValue<*>?,
             builtInExtensionFunctionReceiverValue: ReceiverValue?
-        ): ProcessorAction {
+        ) {
             resultCollector.consumeCandidate(
                 group,
                 candidateFactory.createCandidate(
@@ -212,7 +211,6 @@ class ExplicitReceiverTowerDataConsumer<T : AbstractFirBasedSymbol<*>>(
                     builtInExtensionFunctionReceiverValue
                 )
             )
-            return ProcessorAction.NEXT
         }
     }
 
@@ -222,7 +220,7 @@ class ExplicitReceiverTowerDataConsumer<T : AbstractFirBasedSymbol<*>>(
             dispatchReceiverValue: ReceiverValue?,
             implicitExtensionReceiverValue: ImplicitReceiverValue<*>?,
             builtInExtensionFunctionReceiverValue: ReceiverValue?
-        ): ProcessorAction {
+        ) {
             if (symbol is FirNamedFunctionSymbol && symbol.callableId.packageName.startsWith(defaultPackage)) {
                 val explicitReceiverType = explicitReceiver.type
                 if (dispatchReceiverValue == null && explicitReceiverType is ConeClassLikeType) {
@@ -239,7 +237,7 @@ class ExplicitReceiverTowerDataConsumer<T : AbstractFirBasedSymbol<*>>(
                                 )
                             )
                         ) {
-                            return ProcessorAction.NEXT
+                            return
                         }
                     }
                 }
@@ -256,7 +254,6 @@ class ExplicitReceiverTowerDataConsumer<T : AbstractFirBasedSymbol<*>>(
                 group,
                 candidate
             )
-            return ProcessorAction.NEXT
         }
     }
 }
@@ -294,7 +291,7 @@ class NoExplicitReceiverTowerDataConsumer<T : AbstractFirBasedSymbol<*>>(
             dispatchReceiverValue: ReceiverValue?,
             implicitExtensionReceiverValue: ImplicitReceiverValue<*>?,
             builtInExtensionFunctionReceiverValue: ReceiverValue?
-        ): ProcessorAction {
+        ) {
             resultCollector.consumeCandidate(
                 group,
                 candidateFactory.createCandidate(
@@ -305,7 +302,6 @@ class NoExplicitReceiverTowerDataConsumer<T : AbstractFirBasedSymbol<*>>(
                     builtInExtensionFunctionReceiverValue
                 )
             )
-            return ProcessorAction.NEXT
         }
     }
 }

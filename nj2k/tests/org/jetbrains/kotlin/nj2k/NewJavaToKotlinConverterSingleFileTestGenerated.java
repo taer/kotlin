@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -78,6 +78,11 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
         @TestMetadata("annotationUsages.java")
         public void testAnnotationUsages() throws Exception {
             runTest("nj2k/testData/newJ2k/annotations/annotationUsages.java");
+        }
+
+        @TestMetadata("java9Deprecated.java")
+        public void testJava9Deprecated() throws Exception {
+            runTest("nj2k/testData/newJ2k/annotations/java9Deprecated.java");
         }
 
         @TestMetadata("annotationsFromPropertyAccessors.java")

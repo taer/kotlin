@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -33,12 +33,12 @@ import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirField
+import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSealedClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
-import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirContractDescriptionOwner
 import org.jetbrains.kotlin.fir.declarations.FirMemberFunction
@@ -238,6 +238,10 @@ abstract class FirTransformer<in D> : FirVisitor<CompositeTransformResult<FirEle
         return transformElement(field, data)
     }
 
+    open fun transformEnumEntry(enumEntry: FirEnumEntry, data: D): CompositeTransformResult<FirDeclaration> {
+        return transformElement(enumEntry, data)
+    }
+
     open fun <F : FirClassLikeDeclaration<F>> transformClassLikeDeclaration(classLikeDeclaration: FirClassLikeDeclaration<F>, data: D): CompositeTransformResult<FirStatement> {
         return transformElement(classLikeDeclaration, data)
     }
@@ -256,10 +260,6 @@ abstract class FirTransformer<in D> : FirVisitor<CompositeTransformResult<FirEle
 
     open fun transformTypeAlias(typeAlias: FirTypeAlias, data: D): CompositeTransformResult<FirDeclaration> {
         return transformElement(typeAlias, data)
-    }
-
-    open fun transformEnumEntry(enumEntry: FirEnumEntry, data: D): CompositeTransformResult<FirStatement> {
-        return transformElement(enumEntry, data)
     }
 
     open fun <F : FirFunction<F>> transformFunction(function: FirFunction<F>, data: D): CompositeTransformResult<FirStatement> {
@@ -694,6 +694,10 @@ abstract class FirTransformer<in D> : FirVisitor<CompositeTransformResult<FirEle
         return transformField(field, data)
     }
 
+    final override fun visitEnumEntry(enumEntry: FirEnumEntry, data: D): CompositeTransformResult<FirDeclaration> {
+        return transformEnumEntry(enumEntry, data)
+    }
+
     final override fun <F : FirClassLikeDeclaration<F>> visitClassLikeDeclaration(classLikeDeclaration: FirClassLikeDeclaration<F>, data: D): CompositeTransformResult<FirStatement> {
         return transformClassLikeDeclaration(classLikeDeclaration, data)
     }
@@ -712,10 +716,6 @@ abstract class FirTransformer<in D> : FirVisitor<CompositeTransformResult<FirEle
 
     final override fun visitTypeAlias(typeAlias: FirTypeAlias, data: D): CompositeTransformResult<FirDeclaration> {
         return transformTypeAlias(typeAlias, data)
-    }
-
-    final override fun visitEnumEntry(enumEntry: FirEnumEntry, data: D): CompositeTransformResult<FirStatement> {
-        return transformEnumEntry(enumEntry, data)
     }
 
     final override fun <F : FirFunction<F>> visitFunction(function: FirFunction<F>, data: D): CompositeTransformResult<FirStatement> {

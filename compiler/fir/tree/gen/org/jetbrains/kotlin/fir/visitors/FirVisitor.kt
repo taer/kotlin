@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -33,12 +33,12 @@ import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirField
+import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSealedClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
-import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirContractDescriptionOwner
 import org.jetbrains.kotlin.fir.declarations.FirMemberFunction
@@ -182,6 +182,8 @@ abstract class FirVisitor<out R, in D> {
 
     open fun visitField(field: FirField, data: D): R  = visitElement(field, data)
 
+    open fun visitEnumEntry(enumEntry: FirEnumEntry, data: D): R  = visitElement(enumEntry, data)
+
     open fun <F : FirClassLikeDeclaration<F>> visitClassLikeDeclaration(classLikeDeclaration: FirClassLikeDeclaration<F>, data: D): R  = visitElement(classLikeDeclaration, data)
 
     open fun <F : FirClass<F>> visitClass(klass: FirClass<F>, data: D): R  = visitElement(klass, data)
@@ -191,8 +193,6 @@ abstract class FirVisitor<out R, in D> {
     open fun visitSealedClass(sealedClass: FirSealedClass, data: D): R  = visitElement(sealedClass, data)
 
     open fun visitTypeAlias(typeAlias: FirTypeAlias, data: D): R  = visitElement(typeAlias, data)
-
-    open fun visitEnumEntry(enumEntry: FirEnumEntry, data: D): R  = visitElement(enumEntry, data)
 
     open fun <F : FirFunction<F>> visitFunction(function: FirFunction<F>, data: D): R  = visitElement(function, data)
 

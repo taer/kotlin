@@ -40,12 +40,13 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val valueParameter = element("ValueParameter", Declaration, variable)
     val property = element("Property", Declaration, variable, controlFlowGraphOwner, typeParametersOwner, callableMemberDeclaration)
     val field = element("Field", Declaration, variable, callableMemberDeclaration)
+    val enumEntry = element("EnumEntry", Declaration, variable, callableMemberDeclaration)
+
     val classLikeDeclaration = element("ClassLikeDeclaration", Declaration, declaration, statement, symbolOwner)
     val klass = element("Class", Declaration, classLikeDeclaration, statement, annotationContainer)
     val regularClass = element("RegularClass", Declaration, memberDeclaration, typeParametersOwner, klass)
     val sealedClass = element("SealedClass", Declaration, regularClass)
     val typeAlias = element("TypeAlias", Declaration, classLikeDeclaration, memberDeclaration, typeParametersOwner)
-    val enumEntry = element("EnumEntry", Declaration, regularClass)
 
     val function = element("Function", Declaration, callableDeclaration, controlFlowGraphOwner, targetElement, annotationContainer, typeParametersOwner, statement)
 

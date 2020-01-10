@@ -5,19 +5,17 @@
 
 package org.jetbrains.kotlin.backend.jvm.lower
 
-import org.jetbrains.kotlin.backend.common.FileLoweringPass
-import org.jetbrains.kotlin.backend.common.descriptors.synthesizedName
+import org.jetbrains.kotlin.backend.common.*
 import org.jetbrains.kotlin.backend.common.ir.*
+import org.jetbrains.kotlin.backend.common.lower.LocalDeclarationsLowering
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
-import org.jetbrains.kotlin.backend.common.lower.parents
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
-import org.jetbrains.kotlin.backend.common.pop
-import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
-import org.jetbrains.kotlin.backend.jvm.codegen.isInlineIrBlock
-import org.jetbrains.kotlin.backend.jvm.codegen.isInvokeOfSuspendCallableReference
+import org.jetbrains.kotlin.backend.jvm.ir.IrInlineReferenceLocator
+import org.jetbrains.kotlin.backend.jvm.ir.defaultValue
 import org.jetbrains.kotlin.codegen.coroutines.*
+import org.jetbrains.kotlin.codegen.inline.coroutines.FOR_INLINE_SUFFIX
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
@@ -26,7 +24,6 @@ import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
@@ -36,14 +33,12 @@ import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.load.java.JavaVisibilities
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.util.OperatorNameConventions
-import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstance
 
 internal val addContinuationPhase = makeIrFilePhase(
     ::AddContinuationLowering,
@@ -51,51 +46,58 @@ internal val addContinuationPhase = makeIrFilePhase(
     "Add continuation classes to suspend functions and transform suspend lambdas into continuations"
 )
 
-private object CONTINUATION_CLASS : IrDeclarationOriginImpl("CONTINUATION_CLASS")
-
 private class AddContinuationLowering(private val context: JvmBackendContext) : FileLoweringPass {
+    private val functionsToAdd = mutableMapOf<IrClass, MutableSet<IrFunction>>()
+
     override fun lower(irFile: IrFile) {
-        val suspendLambdas = markSuspendLambdas(irFile)
-        val suspendFunctions = markSuspendFunctions(irFile, suspendLambdas.map { it.function }.toSet())
-        for (lambda in suspendLambdas) {
-            generateContinuationClassForLambda(lambda)
+        val (suspendLambdas, inlineLambdas) = markSuspendLambdas(irFile)
+        transformSuspendFunctions(irFile, (suspendLambdas.map { it.function } + inlineLambdas).toSet())
+        for ((clazz, functions) in functionsToAdd) {
+            for (function in functions) {
+                clazz.declarations.add(function)
+            }
         }
         transformReferencesToSuspendLambdas(irFile, suspendLambdas)
-        transformSuspendCalls(irFile)
-        for (suspendFunction in suspendFunctions) {
-            generateContinuationClassForNamedFunction(suspendFunction)
-        }
     }
 
     private fun transformReferencesToSuspendLambdas(irFile: IrFile, suspendLambdas: List<SuspendLambdaInfo>) {
-        irFile.transformChildrenVoid(object : IrElementTransformerVoid() {
+        for (lambda in suspendLambdas) {
+            (lambda.function.parent as IrDeclarationContainer).declarations.remove(lambda.function)
+        }
+        irFile.transformChildrenVoid(object : IrElementTransformerVoidWithContext() {
             override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
-                expression.transformChildrenVoid(this)
-
                 if (!expression.isSuspend)
                     return expression
-                val constructor = suspendLambdas.singleOrNull { it.function == expression.symbol.owner }?.constructor
-                    ?: return expression
-                val expressionArguments = expression.getArguments().map { it.second }
-                assert(constructor.valueParameters.size == expressionArguments.size) {
-                    "Inconsistency between callable reference to suspend lambda and the corresponding continuation"
-                }
-                val irBuilder = context.createIrBuilder(expression.symbol, expression.startOffset, expression.endOffset)
-                irBuilder.run {
-                    return irCall(constructor.symbol).apply {
-                        expressionArguments.forEachIndexed { index, argument ->
-                            putValueArgument(index, argument)
+                val info = suspendLambdas.singleOrNull { it.function == expression.symbol.owner } ?: return expression
+                return context.createIrBuilder(expression.symbol, expression.startOffset, expression.endOffset).run {
+                    val expressionArguments = expression.getArguments().map { it.second }
+                    irBlock {
+                        +generateContinuationClassForLambda(info, currentDeclarationParent)
+                        val constructor = info.constructor
+                        assert(constructor.valueParameters.size == expressionArguments.size + 1) {
+                            "Inconsistency between callable reference to suspend lambda and the corresponding continuation"
+                        }
+                        +irCall(constructor.symbol).apply {
+                            for (typeParameter in info.constructor.parentAsClass.typeParameters) {
+                                putTypeArgument(typeParameter.index, expression.getTypeArgument(typeParameter.index))
+                            }
+                            expressionArguments.forEachIndexed { index, argument ->
+                                putValueArgument(index, argument)
+                            }
+                            // Pass null as completion parameter
+                            putValueArgument(expressionArguments.size, irNull())
                         }
                     }
-                }
+                }.also { it.transformChildrenVoid(this) }
             }
         })
     }
 
-    private fun generateContinuationClassForLambda(info: SuspendLambdaInfo) {
+    private fun generateContinuationClassForLambda(info: SuspendLambdaInfo, parent: IrDeclarationParent): IrClass {
         val suspendLambda = context.ir.symbols.suspendLambdaClass.owner
-        suspendLambda.createContinuationClassFor(info.function).apply {
+        return suspendLambda.createContinuationClassFor(parent, JvmLoweredDeclarationOrigin.SUSPEND_LAMBDA).apply {
             copyAttributes(info.reference)
+            copyTypeParametersFrom(info.function)
             val functionNClass = context.ir.symbols.getJvmFunctionClass(info.arity + 1)
             superTypes.add(
                 IrSimpleTypeImpl(
@@ -112,19 +114,23 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
 
             val receiverField = info.function.extensionReceiverParameter?.let {
                 assert(info.arity != 0)
-                addField("\$p", it.type)
+                // Do not put '$' at the start, to avoid being caught by inlineCodegenUtils.isCapturedFieldName()
+                addField("p\$", it.type)
             }
 
-            val parametersFields = info.function.valueParameters.map { addField(it.name.asString(), it.type) }
+            val parametersFields = info.function.valueParameters.map { addField(it.name, it.type) }
             val parametersWithoutArguments = parametersFields.withIndex()
                 .mapNotNull { (i, field) -> if (info.reference.getValueArgument(i) == null) field else null }
             val parametersWithArguments = parametersFields - parametersWithoutArguments
             val constructor = addPrimaryConstructorForLambda(info.arity, info.reference, parametersFields)
-            val secondaryConstructor = addSecondaryConstructorForLambda(constructor)
             val invokeToOverride = functionNClass.functions.single {
                 it.owner.valueParameters.size == info.arity + 1 && it.owner.name.asString() == "invoke"
             }
             val invokeSuspend = addInvokeSuspendForLambda(info.function, parametersFields, receiverField)
+            if (info.capturesCrossinline) {
+                addInvokeSuspendForInlineForLambda(invokeSuspend, info.function, parametersFields, receiverField)
+            }
+            info.function.parentAsClass.declarations.remove(info.function)
             if (info.arity <= 1) {
                 val singleParameterField = receiverField ?: parametersWithoutArguments.singleOrNull()
                 val create = addCreate(constructor, suspendLambda, info, parametersWithArguments, singleParameterField)
@@ -139,9 +145,9 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
                 )
             }
 
-            context.suspendLambdaToOriginalFunctionMap[this] = info.function
+            context.suspendLambdaToOriginalFunctionMap[attributeOwnerId as IrFunctionReference] = info.function
 
-            info.constructor = secondaryConstructor
+            info.constructor = constructor
         }
     }
 
@@ -154,46 +160,72 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
             it.owner.name.asString() == INVOKE_SUSPEND_METHOD_NAME && it.owner.valueParameters.size == 1 &&
                     it.owner.valueParameters[0].type.isKotlinResult()
         }.owner
-        return addFunctionOverride(superMethod)
-            .also { function ->
-                function.copyTypeParametersFrom(irFunction)
-                function.body = irFunction.body?.deepCopyWithSymbols(function)
-                function.body?.transformChildrenVoid(object : IrElementTransformerVoid() {
-                    override fun visitGetValue(expression: IrGetValue): IrExpression {
-                        if (expression.symbol.owner == irFunction.extensionReceiverParameter) {
-                            assert(receiverField != null)
-                            return IrGetFieldImpl(
-                                expression.startOffset,
-                                expression.endOffset,
-                                receiverField!!.symbol,
-                                receiverField.type
-                            ).also {
-                                it.receiver =
-                                    IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, function.dispatchReceiverParameter!!.symbol)
-                            }
-                        } else if (expression.symbol.owner == irFunction.dispatchReceiverParameter) {
-                            return IrGetValueImpl(expression.startOffset, expression.endOffset, function.dispatchReceiverParameter!!.symbol)
-                        }
-                        val field = fields.find { it.name == expression.symbol.owner.name } ?: return expression
-                        return IrGetFieldImpl(expression.startOffset, expression.endOffset, field.symbol, field.type).also {
-                            it.receiver = IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, function.dispatchReceiverParameter!!.symbol)
-                        }
-                    }
+        return addFunctionOverride(superMethod).also { it.copySuspendLambdaBodyFrom(irFunction, receiverField, fields) }
+    }
 
-                    // If the suspend lambda body contains declarations of other classes (for other lambdas),
-                    // do not rewrite those. In particular, that could lead to rewriting of returns in nested
-                    // lambdas to unintended non-local returns.
-                    override fun visitClass(declaration: IrClass): IrStatement {
-                        return declaration
-                    }
+    private fun IrClass.addInvokeSuspendForInlineForLambda(
+        invokeSuspend: IrFunction,
+        irFunction: IrFunction,
+        fields: List<IrField>,
+        receiverField: IrField?
+    ): IrFunction {
+        return addFunction(
+            INVOKE_SUSPEND_METHOD_NAME + FOR_INLINE_SUFFIX,
+            context.irBuiltIns.anyNType,
+            Modality.FINAL,
+            origin = JvmLoweredDeclarationOrigin.FOR_INLINE_STATE_MACHINE_TEMPLATE
+        ).apply {
+            invokeSuspend.valueParameters.mapTo(valueParameters) { it.copyTo(this) }
+        }.also { it.copySuspendLambdaBodyFrom(irFunction, receiverField, fields) }
+    }
 
-                    override fun visitReturn(expression: IrReturn): IrExpression {
-                        val ret = super.visitReturn(expression) as IrReturn
-                        return IrReturnImpl(ret.startOffset, ret.endOffset, ret.type, function.symbol, ret.value)
+    private fun IrSimpleFunction.copySuspendLambdaBodyFrom(
+        irFunction: IrFunction,
+        receiverField: IrField?,
+        fields: List<IrField>
+    ) {
+        body = irFunction.body?.deepCopyWithSymbols(this)
+        body?.transformChildrenVoid(object : IrElementTransformerVoid() {
+            override fun visitGetValue(expression: IrGetValue): IrExpression {
+                if (expression.symbol.owner == irFunction.extensionReceiverParameter) {
+                    assert(receiverField != null)
+                    return IrGetFieldImpl(
+                        expression.startOffset,
+                        expression.endOffset,
+                        receiverField!!.symbol,
+                        receiverField.type
+                    ).also {
+                        it.receiver =
+                            IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, dispatchReceiverParameter!!.symbol)
                     }
-                })
-                (irFunction.parent as IrDeclarationContainer).declarations.remove(irFunction)
+                } else if (expression.symbol.owner == irFunction.dispatchReceiverParameter) {
+                    return IrGetValueImpl(expression.startOffset, expression.endOffset, dispatchReceiverParameter!!.symbol)
+                }
+                val field = fields.find { it.name == expression.symbol.owner.name } ?: return expression
+                return IrGetFieldImpl(expression.startOffset, expression.endOffset, field.symbol, field.type).also {
+                    it.receiver = IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, dispatchReceiverParameter!!.symbol)
+                }
             }
+
+            // If the suspend lambda body contains declarations of other classes (for other lambdas),
+            // do not rewrite those. In particular, that could lead to rewriting of returns in nested
+            // lambdas to unintended non-local returns.
+            override fun visitClass(declaration: IrClass): IrStatement {
+                return declaration
+            }
+
+            override fun visitReturn(expression: IrReturn): IrExpression {
+                val ret = super.visitReturn(expression) as IrReturn
+                return IrReturnImpl(ret.startOffset, ret.endOffset, ret.type, symbol, ret.value)
+            }
+        })
+    }
+
+    private fun IrFunction.copyBodyFrom(oldFunction: IrFunction) {
+        val mapping: Map<IrValueParameter, IrValueParameter> =
+            (listOfNotNull(oldFunction.dispatchReceiverParameter, oldFunction.extensionReceiverParameter) + oldFunction.valueParameters)
+                .zip(listOfNotNull(dispatchReceiverParameter, extensionReceiverParameter) + valueParameters).toMap()
+        copyBodyWithParametersMapping(this, oldFunction, mapping)
     }
 
     private fun IrDeclarationContainer.addFunctionOverride(
@@ -256,6 +288,9 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
             function.body = context.createIrBuilder(function.symbol).irBlockBody {
                 // Create a copy
                 val newlyCreatedObject = irTemporary(irCall(constructor).also { constructorCall ->
+                    for (typeParameter in typeParameters) {
+                        constructorCall.putTypeArgument(typeParameter.index, typeParameter.defaultType)
+                    }
                     for ((index, field) in parametersWithArguments.withIndex()) {
                         constructorCall.putValueArgument(index, irGetField(irGet(function.dispatchReceiverParameter!!), field))
                     }
@@ -292,6 +327,9 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
             function.body = context.createIrBuilder(function.symbol).irBlockBody {
                 var index = 0
                 val constructorCall = irCall(constructor).also {
+                    for (typeParameter in typeParameters) {
+                        it.putTypeArgument(typeParameter.index, typeParameter.defaultType)
+                    }
                     for ((i, field) in parametersWithArguments.withIndex()) {
                         if (info.reference.getValueArgument(i) == null) continue
                         it.putValueArgument(index++, irGetField(irGet(function.dispatchReceiverParameter!!), field))
@@ -311,17 +349,15 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
         }
     }
 
-    private fun IrClass.createContinuationClassFor(irFunction: IrFunction): IrClass = buildClass {
-        name = "${irFunction.name}\$Continuation".synthesizedName
-        origin = CONTINUATION_CLASS
+    private fun IrClass.createContinuationClassFor(parent: IrDeclarationParent, newOrigin: IrDeclarationOrigin): IrClass = buildClass {
+        name = Name.special("<Continuation>")
+        origin = newOrigin
         visibility = JavaVisibilities.PACKAGE_VISIBILITY
     }.also { irClass ->
         irClass.createImplicitParameterDeclarationWithWrappedDescriptor()
         irClass.superTypes.add(defaultType)
 
-        val parent = irFunction.parents.firstIsInstance<IrDeclarationContainer>()
         irClass.parent = parent
-        parent.declarations.add(irClass)
     }
 
     // Primary constructor accepts parameters equal to function reference arguments + continuation and sets the fields.
@@ -354,51 +390,38 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
             }
         }
 
-    // Secondary constructor accepts parameters equals to arguments of function reference and is used for callable references
-    // TODO: get rid of it and use primary constructor only
-    private fun IrClass.addSecondaryConstructorForLambda(primary: IrConstructor): IrConstructor =
-        addConstructor {
-            isPrimary = false
-            returnType = defaultType
-        }.also { constructor ->
-            constructor.valueParameters.addAll(primary.valueParameters.dropLast(1).map { it.copyTo(constructor) })
-
-            constructor.body = context.createIrBuilder(constructor.symbol).irBlockBody {
-                +irDelegatingConstructorCall(primary).also {
-                    for ((index, param) in constructor.valueParameters.withIndex()) {
-                        it.putValueArgument(index, irGet(param))
-                    }
-                    it.putValueArgument(constructor.valueParameters.size, irNull())
-                }
-            }
-        }
-
     private fun IrFunction.addCompletionValueParameter(): IrValueParameter =
         addValueParameter(SUSPEND_FUNCTION_COMPLETION_PARAMETER_NAME, continuationType())
 
     private fun IrFunction.continuationType(): IrType =
         context.ir.symbols.continuationClass.typeWith(returnType).makeNullable()
 
-    private fun generateContinuationClassForNamedFunction(irFunction: IrFunction) {
-        context.ir.symbols.continuationImplClass.owner.createContinuationClassFor(irFunction).apply {
-            val resultField = addField(
-                context.state.languageVersionSettings.dataFieldName(),
-                context.irBuiltIns.anyType,
-                JavaVisibilities.PACKAGE_VISIBILITY
-            )
-            val capturedThisField = irFunction.dispatchReceiverParameter?.let { addField("this\$0", it.type) }
-            val labelField = addField(COROUTINE_LABEL_FIELD_NAME, context.irBuiltIns.intType, JavaVisibilities.PACKAGE_VISIBILITY)
-            addConstructorForNamedFunction(capturedThisField)
-            var function = irFunction
-            if (function is IrSimpleFunction && function.isOverridable && function.body != null) {
-                // Create static method for the suspend state machine method so that reentering the method
-                // does not lead to virtual dispatch to the wrong method.
-                context.suspendFunctionContinuations[function] = this
-                function = createStaticSuspendImpl(function)
+    private fun generateContinuationClassForNamedFunction(
+        irFunction: IrFunction,
+        dispatchReceiverParameter: IrValueParameter?,
+        attributeContainer: IrAttributeContainer
+    ): IrClass {
+        return context.ir.symbols.continuationImplClass.owner
+            .createContinuationClassFor(irFunction, JvmLoweredDeclarationOrigin.CONTINUATION_CLASS)
+            .apply {
+                copyTypeParametersFrom(irFunction)
+                val resultField = addField(
+                    context.state.languageVersionSettings.dataFieldName(),
+                    context.irBuiltIns.anyType,
+                    JavaVisibilities.PACKAGE_VISIBILITY
+                )
+                val capturedThisField = dispatchReceiverParameter?.let { addField("this\$0", it.type) }
+                val labelField = addField(COROUTINE_LABEL_FIELD_NAME, context.irBuiltIns.intType, JavaVisibilities.PACKAGE_VISIBILITY)
+                addConstructorForNamedFunction(capturedThisField)
+                addInvokeSuspendForNamedFunction(
+                    irFunction,
+                    resultField,
+                    labelField,
+                    capturedThisField,
+                    irFunction.origin == JvmLoweredDeclarationOrigin.SUSPEND_IMPL_STATIC_FUNCTION
+                )
+                copyAttributes(attributeContainer)
             }
-            addInvokeSuspendForNamedFunction(function, resultField, labelField, capturedThisField, function != irFunction)
-            context.suspendFunctionContinuations[function] = this
-        }
     }
 
     private fun IrClass.addConstructorForNamedFunction(capturedThisField: IrField?): IrConstructor = addConstructor {
@@ -433,7 +456,9 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
         capturedThisField: IrField?,
         isStaticSuspendImpl: Boolean
     ) {
-        val invokeSuspend = context.ir.symbols.continuationImplClass.owner.functions.single { it.name == Name.identifier(INVOKE_SUSPEND_METHOD_NAME) }
+        val backendContext = context
+        val invokeSuspend = context.ir.symbols.continuationImplClass.owner.functions
+            .single { it.name == Name.identifier(INVOKE_SUSPEND_METHOD_NAME) }
         addFunctionOverride(invokeSuspend).also { function ->
             function.body = context.createIrBuilder(function.symbol).irBlockBody {
                 +irSetField(irGet(function.dispatchReceiverParameter!!), resultField, irGet(function.valueParameters[0]))
@@ -458,7 +483,7 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
 
                 +irReturn(irCall(irFunction).also {
                     for (i in irFunction.typeParameters.indices) {
-                        it.putTypeArgument(i, context.irBuiltIns.anyNType)
+                        it.putTypeArgument(i, typeParameters[i].defaultType)
                     }
                     val capturedThisValue = capturedThisField?.let { irField ->
                         irGetField(irGet(function.dispatchReceiverParameter!!), irField)
@@ -467,15 +492,12 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
                         it.dispatchReceiver = capturedThisValue
                     }
                     irFunction.extensionReceiverParameter?.let { extensionReceiverParameter ->
-                        it.extensionReceiver = IrConstImpl.defaultValueForType(
-                            UNDEFINED_OFFSET, UNDEFINED_OFFSET, extensionReceiverParameter.type
+                        it.extensionReceiver = extensionReceiverParameter.type.defaultValue(
+                            UNDEFINED_OFFSET, UNDEFINED_OFFSET, backendContext
                         )
                     }
                     for ((i, parameter) in irFunction.valueParameters.withIndex()) {
-                        val defaultValueForParameter = IrConstImpl.defaultValueForType(
-                            UNDEFINED_OFFSET, UNDEFINED_OFFSET, parameter.type
-                        )
-                        it.putValueArgument(i, defaultValueForParameter)
+                        it.putValueArgument(i, parameter.type.defaultValue(UNDEFINED_OFFSET, UNDEFINED_OFFSET, backendContext))
                     }
                     if (isStaticSuspendImpl) {
                         it.putValueArgument(0, capturedThisValue)
@@ -487,6 +509,7 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
 
     private fun createStaticSuspendImpl(irFunction: IrSimpleFunction): IrSimpleFunction {
         // Create static suspend impl method.
+        val backendContext = context
         val static = createStaticFunctionWithReceivers(
             irFunction.parent,
             irFunction.name.toSuspendImplementationName(),
@@ -495,7 +518,6 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
             copyMetadata = false
         )
         copyBodyToStatic(irFunction, static)
-        (irFunction.parent as IrClass).declarations.add(static)
         // Rewrite the body of the original suspend method to forward to the new static method.
         irFunction.body = context.createIrBuilder(irFunction.symbol).irBlockBody {
             +irReturn(irCall(static).also {
@@ -507,12 +529,14 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
                     it.putValueArgument(i++, irGet(irFunction.dispatchReceiverParameter!!))
                 }
                 if (irFunction.extensionReceiverParameter != null) {
-                    it.putValueArgument(i++, irNull())
+                    val defaultValueForParameter = irFunction.extensionReceiverParameter!!.type.defaultValue(
+                        UNDEFINED_OFFSET, UNDEFINED_OFFSET, backendContext
+                    )
+                    it.putValueArgument(i++, defaultValueForParameter)
+
                 }
                 for (parameter in irFunction.valueParameters) {
-                    val defaultValueForParameter = IrConstImpl.defaultValueForType(
-                        UNDEFINED_OFFSET, UNDEFINED_OFFSET, parameter.type
-                    )
+                    val defaultValueForParameter = parameter.type.defaultValue(UNDEFINED_OFFSET, UNDEFINED_OFFSET, backendContext)
                     it.putValueArgument(i++, defaultValueForParameter)
                 }
             })
@@ -521,86 +545,127 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
     }
 
     // TODO: Generate two copies of inline suspend functions
-    private fun markSuspendFunctions(irFile: IrFile, suspendLambdas: Set<IrFunction>): Set<IrFunction> {
-        val result = hashSetOf<IrFunction>()
+    private fun transformSuspendFunctions(irFile: IrFile, suspendAndInlineLambdas: Set<IrFunction>) {
+        irFile.transformChildrenVoid(object : IrElementTransformerVoid() {
+            private val functionsStack = arrayListOf<IrFunction>()
+            private val suspendFunctionsCapturingCrossinline = mutableSetOf<IrFunction>()
 
-        irFile.acceptChildrenVoid(object : IrElementVisitorVoid {
-            override fun visitElement(element: IrElement) {
-                element.acceptChildrenVoid(this)
-            }
+            override fun visitFunction(declaration: IrFunction): IrStatement {
+                functionsStack.push(declaration)
+                val function = super.visitFunction(declaration) as IrFunction
+                functionsStack.pop()
+                if (skip(function)) return function
 
-            override fun visitFunction(declaration: IrFunction) {
-                super.visitFunction(declaration)
-                if (declaration.isSuspend && declaration !in suspendLambdas && !declaration.isInline &&
-                    !declaration.isInvokeOfSuspendCallableReference()
-                ) {
-                    result.add(declaration)
+                function as IrSimpleFunction
+                if (function in suspendFunctionsCapturingCrossinline) {
+                    val newFunction = buildFun {
+                        name = Name.identifier(function.name.asString() + FOR_INLINE_SUFFIX)
+                        returnType = function.returnType
+                        modality = function.modality
+                        isSuspend = function.isSuspend
+                        origin = JvmLoweredDeclarationOrigin.FOR_INLINE_STATE_MACHINE_TEMPLATE_CAPTURES_CROSSINLINE
+                    }.apply {
+                        dispatchReceiverParameter = function.dispatchReceiverParameter?.copyTo(this)
+                        extensionReceiverParameter = function.extensionReceiverParameter?.copyTo(this)
+                        function.valueParameters.mapTo(valueParameters) { it.copyTo(this) }
+                        copyBodyFrom(function)
+                        copyAttributes(function)
+                    }
+                    registerNewFunction(function.parentAsClass, newFunction)
                 }
-            }
-        })
 
-        return result
-    }
+                val newFunction = if (function.isOverridable) {
+                    // Create static method for the suspend state machine method so that reentering the method
+                    // does not lead to virtual dispatch to the wrong method.
+                    registerNewFunction(function.parentAsClass, function)
+                    createStaticSuspendImpl(function)
+                } else function
 
-    private fun markSuspendLambdas(irElement: IrElement): List<SuspendLambdaInfo> {
-        val suspendLambdas = arrayListOf<SuspendLambdaInfo>()
-        val inlineLambdas = mutableSetOf<IrFunctionReference>()
-        irElement.acceptChildrenVoid(object : IrElementVisitorVoid {
-            override fun visitElement(element: IrElement) {
-                element.acceptChildrenVoid(this)
-            }
-
-            override fun visitCall(expression: IrCall) {
-                val owner = expression.symbol.owner
-                if (owner.isInline) {
-                    for (i in 0 until expression.valueArgumentsCount) {
-                        if (owner.valueParameters[i].isNoinline) continue
-
-                        val valueArgument = expression.getValueArgument(i) ?: continue
-                        if (valueArgument is IrBlock && valueArgument.isInlineIrBlock()) {
-                            assert(valueArgument !is IrCallableReference) {
-                                "callable references should be lowered to function references"
-                            }
-                            inlineLambdas += valueArgument.statements.filterIsInstance<IrFunctionReference>().single()
-                        }
+                newFunction.body = context.createIrBuilder(newFunction.symbol).irBlockBody {
+                    +generateContinuationClassForNamedFunction(
+                        newFunction,
+                        function.dispatchReceiverParameter,
+                        declaration as IrAttributeContainer
+                    )
+                    for (statement in newFunction.body!!.statements) {
+                        +statement
                     }
                 }
-                expression.acceptChildrenVoid(this)
+                return newFunction
+            }
+
+            private fun skip(function: IrFunction) =
+                !function.isSuspend || function in suspendAndInlineLambdas || function.isInline || function.body == null ||
+                        function.origin == JvmLoweredDeclarationOrigin.DEFAULT_IMPLS_BRIDGE ||
+                        function.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER ||
+                        function.parentAsClass.origin == JvmLoweredDeclarationOrigin.FUNCTION_REFERENCE_IMPL
+
+            override fun visitFieldAccess(expression: IrFieldAccessExpression): IrExpression {
+                val result = super.visitFieldAccess(expression)
+                val function = functionsStack.peek() ?: return result
+                if (function.isSuspend &&
+                    expression.symbol.owner.origin == LocalDeclarationsLowering.DECLARATION_ORIGIN_FIELD_FOR_CROSSINLINE_CAPTURED_VALUE
+                ) {
+                    suspendFunctionsCapturingCrossinline += function
+                }
+                return result
+            }
+        })
+    }
+
+    private fun registerNewFunction(container: IrClass, function: IrFunction) {
+        functionsToAdd.getOrPut(container) { mutableSetOf() }.add(function)
+    }
+
+    private fun markSuspendLambdas(irElement: IrElement): Pair<List<SuspendLambdaInfo>, List<IrFunction>> {
+        val suspendLambdas = arrayListOf<SuspendLambdaInfo>()
+        val capturesCrossinline = mutableSetOf<IrCallableReference>()
+        val visitor = object : IrInlineReferenceLocator(context) {
+            override fun visitElement(element: IrElement) {
+                element.acceptChildrenVoid(this)
+            }
+
+            override fun handleInlineFunctionCallableReferenceParam(valueArgument: IrCallableReference) {
+                super.handleInlineFunctionCallableReferenceParam(valueArgument)
+                val getValue = (valueArgument as? IrGetValue) ?: return
+                val parameter = getValue.symbol.owner as? IrValueParameter ?: return
+                if (parameter.isCrossinline) {
+                    capturesCrossinline += valueArgument
+                }
             }
 
             override fun visitFunctionReference(expression: IrFunctionReference) {
                 expression.acceptChildrenVoid(this)
 
-                if (expression.isSuspend && expression !in inlineLambdas && expression.origin == IrStatementOrigin.LAMBDA) {
+                if (expression.isSuspend && expression !in inlineReferences && expression.origin == IrStatementOrigin.LAMBDA) {
+                    var expressionCapturesCrossinline = false
+                    for (i in 0 until expression.valueArgumentsCount) {
+                        val getValue = expression.getValueArgument(i) as? IrGetValue ?: continue
+                        val owner = getValue.symbol.owner as? IrValueParameter ?: continue
+                        if (owner.isCrossinline) {
+                            expressionCapturesCrossinline = true
+                            break
+                        }
+                    }
                     suspendLambdas += SuspendLambdaInfo(
                         expression.symbol.owner,
                         (expression.type as IrSimpleType).arguments.size - 1,
-                        expression
+                        expression,
+                        expressionCapturesCrossinline || expression in capturesCrossinline
                     )
                 }
             }
-        })
-        return suspendLambdas
+        }
+        irElement.acceptChildrenVoid(visitor)
+        return suspendLambdas to visitor.inlineReferences.map { it.symbol.owner as IrFunction }
     }
 
-    private fun transformSuspendCalls(irFile: IrFile) {
-        irFile.transformChildrenVoid(object : IrElementTransformerVoid() {
-            private val functionStack = mutableListOf<IrFunction>()
-            override fun visitElement(element: IrElement): IrElement {
-                element.transformChildrenVoid(this)
-                return element
-            }
-
-            override fun visitFunction(declaration: IrFunction): IrStatement {
-                functionStack.push(declaration)
-                val res = super.visitFunction(declaration)
-                functionStack.pop()
-                return res
-            }
-        })
-    }
-
-    private class SuspendLambdaInfo(val function: IrFunction, val arity: Int, val reference: IrFunctionReference) {
+    private class SuspendLambdaInfo(
+        val function: IrFunction,
+        val arity: Int,
+        val reference: IrFunctionReference,
+        val capturesCrossinline: Boolean
+    ) {
         lateinit var constructor: IrConstructor
     }
 }

@@ -5,62 +5,105 @@
 
 package org.jetbrains.kotlin.idea.scripting.gradle
 
-import com.intellij.openapi.externalSystem.service.project.autoimport.ConfigurationFileCrcFactory
+import com.intellij.openapi.components.*
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.VirtualFile
-import org.jetbrains.plugins.gradle.settings.GradleLocalSettings
-import java.nio.file.Paths
-import java.util.*
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent
+import com.intellij.util.PathUtil
+import org.jetbrains.annotations.TestOnly
 
-class GradleScriptInputsWatcher(val project: Project) {
-    private val comparator = Comparator<VirtualFile> { f1, f2 -> (f1.timeStamp - f2.timeStamp).toInt() }
+@State(
+    name = "KotlinBuildScriptsModificationInfo",
+    storages = [Storage(StoragePathMacros.CACHE_FILE)]
+)
+class GradleScriptInputsWatcher(val project: Project) : PersistentStateComponent<GradleScriptInputsWatcher.Storage> {
+    private var storage = Storage()
 
-    private val storage = TreeSet(comparator)
+    fun startWatching() {
+        project.messageBus.connect().subscribe(
+            VirtualFileManager.VFS_CHANGES,
+            object : BulkFileListener {
+                override fun after(events: List<VFileEvent>) {
+                    if (project.isDisposed) return
 
-    init {
-        initStorage(project)
+                    val files = getAffectedGradleProjectFiles(project)
+                    for (event in events) {
+                        val file = event.file ?: return
+                        if (isInAffectedGradleProjectFiles(files, file)) {
+                            storage.fileChanged(file, file.timeStamp)
+                        }
+                    }
+                }
+            })
     }
 
-    private fun initStorage(project: Project) {
-        val localSettings = GradleLocalSettings.getInstance(project)
-        localSettings.externalConfigModificationStamps.forEach { (path, stamp) ->
-            val file = VfsUtil.findFile(Paths.get(path), true)
-            if (file != null && !file.isDirectory) {
-                val calculateCrc = ConfigurationFileCrcFactory(file).create()
-                if (calculateCrc != stamp) {
-                    addToStorage(file)
+    fun areRelatedFilesUpToDate(file: VirtualFile, timeStamp: Long): Boolean {
+        return storage.lastModifiedTimeStampExcept(file) < timeStamp
+    }
+
+    class Storage(
+        private var lastModifiedTS: Long = 0,
+        private var lastModifiedFiles: MutableSet<String> = hashSetOf(),
+        private var previousModifiedTS: Long = 0,
+        private var previousModifiedFiles: MutableSet<String> = hashSetOf()
+    ) {
+        fun lastModifiedTimeStampExcept(file: VirtualFile): Long {
+            val fileId = getFileId(file)
+            synchronized(this) {
+                if (lastModifiedFiles.contains(fileId) && lastModifiedFiles.size == 1) {
+                    return previousModifiedTS
+                }
+                return lastModifiedTS
+            }
+
+        }
+
+        fun fileChanged(file: VirtualFile, ts: Long) {
+            val fileId = getFileId(file)
+            synchronized(this) {
+                when {
+                    ts > lastModifiedTS -> {
+                        previousModifiedFiles = lastModifiedFiles
+                        previousModifiedTS = lastModifiedTS
+
+                        lastModifiedFiles = hashSetOf(fileId)
+                        lastModifiedTS = ts
+                    }
+                    ts == lastModifiedTS -> {
+                        lastModifiedFiles.add(fileId)
+                    }
+                    ts == previousModifiedTS -> {
+                        previousModifiedFiles.add(fileId)
+                    }
+                    else -> {}
                 }
             }
         }
-    }
 
-    fun lastModifiedFileTimeStamp(file: VirtualFile): Long = lastModifiedRelatedFile(file)?.timeStamp ?: 0
-
-    fun areRelatedFilesUpToDate(file: VirtualFile, timeStamp: Long): Boolean {
-        return lastModifiedFileTimeStamp(file) <= timeStamp
-    }
-
-    fun addToStorage(file: VirtualFile) {
-        if (storage.contains(file)) {
-            storage.remove(file)
+        private fun getFileId(file: VirtualFile): String {
+            val canonized = PathUtil.getCanonicalPath(file.path)
+            return FileUtil.toSystemIndependentName(canonized)
         }
-        storage.add(file)
     }
 
-    private fun lastModifiedRelatedFile(file: VirtualFile): VirtualFile? {
-        if (storage.isEmpty()) return null
+    override fun getState(): Storage {
+        return storage
+    }
 
-        val iterator = storage.descendingIterator()
-        if (!iterator.hasNext()) return null
+    override fun loadState(state: Storage) {
+        this.storage = state
+    }
 
-        var lastModifiedFile = iterator.next()
-        while (lastModifiedFile == file && iterator.hasNext()) {
-            lastModifiedFile = iterator.next()
-        }
+    @TestOnly
+    fun clearAndRefillState() {
+        loadState(project.service<GradleScriptInputsWatcher>().state)
+    }
 
-        if (lastModifiedFile == file) return null
-
-        return lastModifiedFile
+    @TestOnly
+    fun fileChanged(file: VirtualFile, ts: Long) {
+        storage.fileChanged(file, ts)
     }
 }

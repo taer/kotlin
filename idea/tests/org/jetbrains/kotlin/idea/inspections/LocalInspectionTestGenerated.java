@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8046,6 +8046,11 @@ public class LocalInspectionTestGenerated extends AbstractLocalInspectionTest {
             KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("idea/testData/inspectionsLocal/redundantVisibilityModifier"), Pattern.compile("^([\\w\\-_]+)\\.(kt|kts)$"), null, true);
         }
 
+        @TestMetadata("internalInPrivateClass.kt")
+        public void testInternalInPrivateClass() throws Exception {
+            runTest("idea/testData/inspectionsLocal/redundantVisibilityModifier/internalInPrivateClass.kt");
+        }
+
         @TestMetadata("overridePropertySetter.kt")
         public void testOverridePropertySetter() throws Exception {
             runTest("idea/testData/inspectionsLocal/redundantVisibilityModifier/overridePropertySetter.kt");
@@ -8240,6 +8245,11 @@ public class LocalInspectionTestGenerated extends AbstractLocalInspectionTest {
         @TestMetadata("necessaryBrackets7.kt")
         public void testNecessaryBrackets7() throws Exception {
             runTest("idea/testData/inspectionsLocal/removeCurlyBracesFromTemplate/necessaryBrackets7.kt");
+        }
+
+        @TestMetadata("necessaryBrackets8.kt")
+        public void testNecessaryBrackets8() throws Exception {
+            runTest("idea/testData/inspectionsLocal/removeCurlyBracesFromTemplate/necessaryBrackets8.kt");
         }
 
         @TestMetadata("unnecessaryBrackets1.kt")

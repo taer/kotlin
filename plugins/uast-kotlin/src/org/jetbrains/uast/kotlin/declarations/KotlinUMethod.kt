@@ -16,23 +16,19 @@
 
 package org.jetbrains.uast.kotlin.declarations
 
-import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiMethod
-import com.intellij.psi.PsiNameIdentifierOwner
+import com.intellij.psi.*
 import com.intellij.psi.impl.light.LightMethodBuilder
 import com.intellij.psi.impl.light.LightModifierList
 import com.intellij.psi.impl.light.LightParameterListBuilder
-import org.jetbrains.kotlin.asJava.elements.KtLightElement
-import org.jetbrains.kotlin.asJava.elements.KtLightMethod
-import org.jetbrains.kotlin.asJava.elements.isGetter
-import org.jetbrains.kotlin.asJava.elements.isSetter
-import org.jetbrains.kotlin.asJava.findFacadeClass
-import org.jetbrains.kotlin.asJava.toLightClass
+import com.intellij.psi.impl.light.LightTypeParameterBuilder
+import org.jetbrains.kotlin.asJava.elements.*
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
+import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.utils.SmartList
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.uast.*
 import org.jetbrains.uast.java.internal.JavaUElementWithComments
 import org.jetbrains.uast.kotlin.*
@@ -154,21 +150,37 @@ open class KotlinUAnnotationMethod(
 
 }
 
-private fun buildLightMethodFake(original: KtFunction): PsiMethod = object : LightMethodBuilder(
+private class UastFakeLightMethod(private val original: KtFunction, containingClass: PsiClass) : LightMethodBuilder(
     original.manager, original.language, original.name,
     LightParameterListBuilder(original.manager, original.language),
     LightModifierList(original.manager)
 ) {
 
     init {
-        containingClass = original.containingClassOrObject?.toLightClass() ?: original.containingKtFile.findFacadeClass()
+        this.containingClass = containingClass
+    }
+
+    private val _buildTypeParameterList by lazy {
+        KotlinLightTypeParameterListBuilder(this).also { paramList ->
+            for ((i, p) in original.typeParameters.withIndex()) {
+                paramList.addParameter(LightTypeParameterBuilder(p.name ?: "__no_name__", this, i))
+            }
+        }
+    }
+
+    override fun getTypeParameterList(): PsiTypeParameterList? = _buildTypeParameterList
+
+    override fun getReturnType(): PsiType? {
+        val context = original.analyze()
+        val descriptor = context.get(BindingContext.DECLARATION_TO_DESCRIPTOR, original).safeAs<CallableDescriptor>() ?: return null
+        return descriptor.returnType?.toPsiType(this, original, false)
     }
 
     override fun getParent(): PsiElement? = containingClass
 }
 
-class KotlinUMethodWithFakeLightDelegate(val original: KtFunction, givenParent: UElement?) :
-    KotlinUMethod(buildLightMethodFake(original), original, givenParent) {
+class KotlinUMethodWithFakeLightDelegate(val original: KtFunction, containingLightClass: PsiClass, givenParent: UElement?) :
+    KotlinUMethod(UastFakeLightMethod(original, containingLightClass), original, givenParent) {
     override val annotations: List<UAnnotation>
         get() = original.annotationEntries.mapNotNull { it.toUElementOfType<UAnnotation>() }
 

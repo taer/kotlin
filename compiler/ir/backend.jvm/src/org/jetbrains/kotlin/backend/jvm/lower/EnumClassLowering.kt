@@ -138,7 +138,7 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
                 enumConstructor.origin,
                 IrConstructorSymbolImpl(descriptor),
                 enumConstructor.name,
-                Visibilities.PRIVATE,
+                enumConstructor.visibility,
                 returnType = enumConstructor.returnType,
                 isInline = enumConstructor.isInline,
                 isExternal = enumConstructor.isExternal,
@@ -257,7 +257,6 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
             val irValuesInitializer = createSyntheticValuesFieldInitializerExpression()
 
             val descriptor = WrappedFieldDescriptor()
-            // TODO: mark ACC_SYNTHETIC
             return IrFieldImpl(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET, IrDeclarationOrigin.FIELD_FOR_ENUM_VALUES,
                 IrFieldSymbolImpl(descriptor),

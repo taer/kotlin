@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.scopes.FirScopeProvider
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.name.Name
@@ -29,6 +30,7 @@ interface FirRegularClass : FirMemberDeclaration, FirTypeParametersOwner, FirCla
     override val status: FirDeclarationStatus
     override val classKind: ClassKind
     override val declarations: List<FirDeclaration>
+    override val scopeProvider: FirScopeProvider
     override val symbol: FirRegularClassSymbol
     val companionObject: FirRegularClass?
     override val superTypeRefs: List<FirTypeRef>

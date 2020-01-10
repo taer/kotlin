@@ -5,10 +5,10 @@
 
 package org.jetbrains.kotlin.descriptors.commonizer.builder
 
-import org.jetbrains.kotlin.descriptors.commonizer.CommonizedGroup
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.CirModule
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.CirModuleNode
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.indexOfCommon
+import org.jetbrains.kotlin.descriptors.commonizer.utils.CommonizedGroup
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 
 internal fun CirModuleNode.buildDescriptors(
@@ -20,6 +20,9 @@ internal fun CirModuleNode.buildDescriptors(
     }
 
     common()?.buildDescriptor(components, output, indexOfCommon)
+
+    // log stats
+    components.statsCollector?.logStats(output.toList())
 }
 
 private fun CirModule.buildDescriptor(

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -125,6 +125,24 @@ public class BlackBoxAgainstJavaCodegenTestGenerated extends AbstractBlackBoxAga
             @TestMetadata("varargClassParameterOnJavaClass.kt")
             public void testVarargClassParameterOnJavaClass() throws Exception {
                 runTest("compiler/testData/codegen/boxAgainstJava/annotations/kClassMapping/varargClassParameterOnJavaClass.kt");
+            }
+        }
+
+        @TestMetadata("compiler/testData/codegen/boxAgainstJava/annotations/typeAnnotations")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class TypeAnnotations extends AbstractBlackBoxAgainstJavaCodegenTest {
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+            }
+
+            public void testAllFilesPresentInTypeAnnotations() throws Exception {
+                KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxAgainstJava/annotations/typeAnnotations"), Pattern.compile("^(.+)\\.kt$"), null, true);
+            }
+
+            @TestMetadata("implicitReturn.kt")
+            public void testImplicitReturn() throws Exception {
+                runTest("compiler/testData/codegen/boxAgainstJava/annotations/typeAnnotations/implicitReturn.kt");
             }
         }
     }

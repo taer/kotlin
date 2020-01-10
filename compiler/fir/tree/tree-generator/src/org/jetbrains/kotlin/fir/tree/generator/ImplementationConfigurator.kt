@@ -67,27 +67,8 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         impl(anonymousObject) {
             parents += modifiableClass.withArg(anonymousObject)
-            default("classKind") {
-                value = "ClassKind.OBJECT"
-                withGetter = true
-            }
         }
 
-        impl(enumEntry) {
-            parents += modifiableClass.withArg(regularClass)
-            parents += modifiableTypeParametersOwner
-            default("status", "FirDeclarationStatusImpl(Visibilities.UNKNOWN, Modality.FINAL)")
-            default("classKind") {
-                value = "ClassKind.ENUM_ENTRY"
-                withGetter = true
-            }
-            default("companionObject") {
-                value = "null"
-                withGetter = true
-            }
-            default("typeRef", "session.builtinTypes.enumType")
-            useTypes(visibilitiesType, modalityType)
-        }
 
         impl(typeAlias) {
             parents += modifiableTypeParametersOwner
@@ -290,6 +271,12 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             }
 
             defaultNull("delegateFieldSymbol", "receiverTypeRef", "initializer", "delegate", "getter", "setter", withGetter = true)
+        }
+
+        impl(enumEntry) {
+            defaultTrue("isVal", withGetter = true)
+            defaultFalse("isVar", withGetter = true)
+            defaultNull("delegateFieldSymbol", "receiverTypeRef", "delegate", "getter", "setter", withGetter = true)
         }
 
         impl(namedArgumentExpression) {

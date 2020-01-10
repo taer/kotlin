@@ -333,6 +333,28 @@ class Collections {
             set += listOf(4, 5)
             assertPrints(set, "[1, 2, 4, 5]")
         }
+
+        @Sample
+        fun emptyLinkedHashSet() {
+            val set: LinkedHashSet<Int> = linkedSetOf<Int>()
+
+            set.add(1)
+            set.add(3)
+            set.add(2)
+
+            assertPrints(set, "[1, 3, 2]")
+        }
+
+        @Sample
+        fun linkedHashSet() {
+            val set: LinkedHashSet<Int> = linkedSetOf(1, 3, 2)
+
+            assertPrints(set, "[1, 3, 2]")
+
+            set.remove(3)
+            set += listOf(5, 4)
+            assertPrints(set, "[1, 2, 5, 4]")
+        }
     }
 
     class Transformations {
@@ -640,6 +662,40 @@ class Collections {
             val emptyList = emptyList<String>()
             val emptyMin = emptyList.minBy { it.length }
             assertPrints(emptyMin, "null")
+        }
+
+        @Sample
+        fun reduce() {
+            val strings = listOf("a", "b", "c", "d")
+            assertPrints(strings.reduce { acc, string -> acc + string }, "abcd")
+            assertPrints(strings.reduceIndexed { index, acc, string -> acc + string + index }, "ab1c2d3")
+
+            assertFails { emptyList<Int>().reduce { _, _ -> 0 } }
+        }
+
+        @Sample
+        fun reduceRight() {
+            val strings = listOf("a", "b", "c", "d")
+            assertPrints(strings.reduceRight { string, acc -> acc + string }, "dcba")
+            assertPrints(strings.reduceRightIndexed { index, string, acc -> acc + string + index }, "dc2b1a0")
+
+            assertFails { emptyList<Int>().reduceRight { _, _ -> 0 } }
+        }
+
+        @Sample
+        fun reduceOrNull() {
+            val strings = listOf("a", "b", "c", "d")
+            assertPrints(strings.reduceOrNull { acc, string -> acc + string }, "abcd")
+
+            assertPrints(emptyList<String>().reduceOrNull { _, _ -> "" }, "null")
+        }
+
+        @Sample
+        fun reduceRightOrNull() {
+            val strings = listOf("a", "b", "c", "d")
+            assertPrints(strings.reduceRightOrNull { string, acc -> acc + string }, "dcba")
+
+            assertPrints(emptyList<String>().reduceRightOrNull { _, _ -> "" }, "null")
         }
     }
 

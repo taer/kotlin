@@ -78,8 +78,10 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
 
         if (declaration.isInline) {
             val irConstructor = declaration.primaryConstructor!!
-            // The field getter is used by reflection and cannot be removed here.
-            declaration.declarations.remove(irConstructor)
+            // The field getter is used by reflection and cannot be removed here unless it is internal.
+            declaration.declarations.removeIf {
+                it == irConstructor || (it is IrFunction && it.isInlineClassFieldGetter && !it.visibility.isPublicAPI)
+            }
             buildPrimaryInlineClassConstructor(declaration, irConstructor)
             buildBoxFunction(declaration)
             buildUnboxFunction(declaration)
@@ -111,6 +113,7 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
         valueMap.putAll(replacement.valueParameterMap)
         worker.valueParameters.forEach { it.transformChildrenVoid() }
         worker.body = function.body?.transform(this, null)?.patchDeclarationParents(worker)
+        (worker as? IrAttributeContainer)?.copyAttributes(function)
 
         // Don't create a wrapper for functions which are only used in an unboxed context
         if (function.overriddenSymbols.isEmpty() || worker.dispatchReceiverParameter != null)

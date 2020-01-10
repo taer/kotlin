@@ -50,7 +50,7 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     var noReflect: Boolean by FreezableVar(false)
 
     @Argument(value = "-Xexpression", description = "Evaluate the given string as a Kotlin script")
-    var expressions: Array<String>? by FreezableVar(null)
+    var expression: String? by FreezableVar(null)
 
     @Argument(
         value = "-script-templates",
@@ -288,6 +288,12 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
         description = "Allow no source files"
     )
     var allowNoSourceFiles: Boolean by FreezableVar(false)
+
+    @Argument(
+        value = "-Xemit-jvm-type-annotations",
+        description = "Emit JVM type annotations in bytecode"
+    )
+    var emitJvmTypeAnnotations: Boolean by FreezableVar(false)
 
     override fun configureAnalysisFlags(collector: MessageCollector): MutableMap<AnalysisFlag<*>, Any> {
         val result = super.configureAnalysisFlags(collector)

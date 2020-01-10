@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -40,9 +40,19 @@ public class RawFirBuilderTestCaseGenerated extends AbstractRawFirBuilderTestCas
             KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/psi2fir/testData/rawBuilder/declarations"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
+        @TestMetadata("annotation.kt")
+        public void testAnnotation() throws Exception {
+            runTest("compiler/fir/psi2fir/testData/rawBuilder/declarations/annotation.kt");
+        }
+
         @TestMetadata("complexTypes.kt")
         public void testComplexTypes() throws Exception {
             runTest("compiler/fir/psi2fir/testData/rawBuilder/declarations/complexTypes.kt");
+        }
+
+        @TestMetadata("constructorInObject.kt")
+        public void testConstructorInObject() throws Exception {
+            runTest("compiler/fir/psi2fir/testData/rawBuilder/declarations/constructorInObject.kt");
         }
 
         @TestMetadata("derivedClass.kt")
@@ -211,6 +221,11 @@ public class RawFirBuilderTestCaseGenerated extends AbstractRawFirBuilderTestCas
         @TestMetadata("in.kt")
         public void testIn() throws Exception {
             runTest("compiler/fir/psi2fir/testData/rawBuilder/expressions/in.kt");
+        }
+
+        @TestMetadata("inBrackets.kt")
+        public void testInBrackets() throws Exception {
+            runTest("compiler/fir/psi2fir/testData/rawBuilder/expressions/inBrackets.kt");
         }
 
         @TestMetadata("init.kt")

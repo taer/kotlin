@@ -19,12 +19,17 @@ import org.jetbrains.kotlin.ide.konan.decompiler.KotlinNativeLoadingMetadataCach
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.idea.decompiler.textBuilder.LoggingErrorReporter
+import org.jetbrains.kotlin.library.KLIB_FILE_EXTENSION
+import org.jetbrains.kotlin.library.KLIB_MANIFEST_FILE_NAME
+import org.jetbrains.kotlin.library.KLIB_PROPERTY_UNIQUE_NAME
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.impl.KotlinLibraryImpl
 import org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf
 import org.jetbrains.kotlin.library.metadata.PackageAccessHandler
 import org.jetbrains.kotlin.metadata.ProtoBuf
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
+import java.io.IOException
+import java.util.*
 import org.jetbrains.kotlin.konan.file.File as KFile
 
 fun createFileStub(project: Project, text: String): PsiFileStub<*> {
@@ -42,25 +47,25 @@ fun createLoggingErrorReporter(log: Logger) = LoggingErrorReporter(log)
 internal object CachingIdeKonanLibraryMetadataLoader : PackageAccessHandler {
     override fun loadModuleHeader(library: KotlinLibrary): KlibMetadataProtoBuf.Header {
         val virtualFile = getVirtualFile(library, library.moduleHeaderFile)
-        return cache.getCachedModuleHeader(virtualFile)!!
+        return virtualFile?.let { cache.getCachedModuleHeader(virtualFile) } ?: KlibMetadataProtoBuf.Header.getDefaultInstance()
     }
 
     override fun loadPackageFragment(library: KotlinLibrary, packageFqName: String, partName: String): ProtoBuf.PackageFragment {
         val virtualFile = getVirtualFile(library, library.packageFragmentFile(packageFqName, partName))
-        return cache.getCachedPackageFragment(virtualFile)!!
+        return virtualFile?.let { cache.getCachedPackageFragment(virtualFile) } ?: ProtoBuf.PackageFragment.getDefaultInstance()
     }
 
-    private fun getVirtualFile(library: KotlinLibrary, file: KFile): VirtualFile =
+    private fun getVirtualFile(library: KotlinLibrary, file: KFile): VirtualFile? =
         if (library.isZipped) asJarFileSystemFile(library.libraryFile, file) else asLocalFile(file)
 
-    private fun asJarFileSystemFile(jarFile: KFile, localFile: KFile): VirtualFile {
+    private fun asJarFileSystemFile(jarFile: KFile, localFile: KFile): VirtualFile? {
         val fullPath = jarFile.absolutePath + "!" + PathUtil.toSystemIndependentName(localFile.path)
-        return StandardFileSystems.jar().findFileByPath(fullPath) ?: error("File not found: $fullPath")
+        return StandardFileSystems.jar().findFileByPath(fullPath)
     }
 
-    private fun asLocalFile(localFile: KFile): VirtualFile {
+    private fun asLocalFile(localFile: KFile): VirtualFile? {
         val fullPath = localFile.absolutePath
-        return StandardFileSystems.local().findFileByPath(fullPath) ?: error("File not found: $fullPath")
+        return StandardFileSystems.local().findFileByPath(fullPath)
     }
 
     private val cache
@@ -76,3 +81,21 @@ internal object CachingIdeKonanLibraryMetadataLoader : PackageAccessHandler {
         get() = (this as KotlinLibraryImpl).base.access.layout.isZipped
 }
 
+internal val VirtualFile.isKonanLibraryRoot: Boolean
+    get() {
+        // The virtual file for a library packed in a ZIP file will have path like "/some/path/to/the/file.klib!/",
+        // and therefore will be recognized by VFS as a directory (isDirectory == true).
+        // So, first, let's check the extension.
+        val extension = extension
+        if (!extension.isNullOrEmpty() && extension != KLIB_FILE_EXTENSION) return false
+
+        val manifestFile = findChild(KLIB_MANIFEST_FILE_NAME)?.takeIf { !it.isDirectory } ?: return false
+
+        val manifestProperties = try {
+            manifestFile.inputStream.use { Properties().apply { load(it) } }
+        } catch (_: IOException) {
+            return false
+        }
+
+        return manifestProperties.containsKey(KLIB_PROPERTY_UNIQUE_NAME)
+    }

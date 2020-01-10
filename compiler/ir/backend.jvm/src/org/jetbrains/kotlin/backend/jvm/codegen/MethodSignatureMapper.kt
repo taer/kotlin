@@ -214,6 +214,7 @@ class MethodSignatureMapper(private val context: JvmBackendContext) {
         for (parameter in function.valueParameters) {
             val kind = when (parameter.origin) {
                 JvmLoweredDeclarationOrigin.FIELD_FOR_OUTER_THIS -> JvmMethodParameterKind.OUTER
+                JvmLoweredDeclarationOrigin.ENUM_CONSTRUCTOR_SYNTHETIC_PARAMETER -> JvmMethodParameterKind.ENUM_NAME_OR_ORDINAL
                 else -> JvmMethodParameterKind.VALUE
             }
             val type = if (forceSingleValueParameterBoxing(function.descriptor)) parameter.type.makeNullable() else parameter.type
@@ -285,15 +286,7 @@ class MethodSignatureMapper(private val context: JvmBackendContext) {
 
     fun mapToCallableMethod(caller: IrFunction, expression: IrFunctionAccessExpression): IrCallableMethod {
         val callee = expression.symbol.owner.getOrCreateSuspendFunctionViewIfNeeded(context)
-        val calleeParent = callee.parent
-        if (calleeParent !is IrClass) {
-            // Non-class parent is only possible for intrinsics created in IrBuiltIns, such as dataClassArrayMemberHashCode. In that case,
-            // we still need to return some IrCallableMethod with some owner instance, but that owner will be ignored at the call site.
-            // Here we return a fake type, but this needs to be refactored so that we never call mapToCallableMethod on intrinsics.
-            // TODO: get rid of fake owner here
-            return IrCallableMethod(FAKE_OWNER_TYPE, Opcodes.INVOKESTATIC, mapSignatureSkipGeneric(callee), false)
-        }
-
+        val calleeParent = callee.parentAsClass
         val owner = typeMapper.mapClass(calleeParent)
 
         if (callee !is IrSimpleFunction) {
@@ -350,9 +343,5 @@ class MethodSignatureMapper(private val context: JvmBackendContext) {
                 ?: error("Fake override should have at least one overridden descriptor: ${current.render()}")
         }
         return current
-    }
-
-    companion object {
-        val FAKE_OWNER_TYPE = Type.getObjectType("kotlin/internal/ir/Intrinsic")
     }
 }

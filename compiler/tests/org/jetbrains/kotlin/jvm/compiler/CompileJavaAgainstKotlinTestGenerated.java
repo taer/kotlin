@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -311,6 +311,11 @@ public class CompileJavaAgainstKotlinTestGenerated extends AbstractCompileJavaAg
             @TestMetadata("TraitImpl.kt")
             public void testTraitImpl() throws Exception {
                 runTest("compiler/testData/compileJavaAgainstKotlin/method/TraitImpl.kt");
+            }
+
+            @TestMetadata("TypeParamInInner.kt")
+            public void testTypeParamInInner() throws Exception {
+                runTest("compiler/testData/compileJavaAgainstKotlin/method/TypeParamInInner.kt");
             }
 
             @TestMetadata("Vararg.kt")
@@ -954,6 +959,11 @@ public class CompileJavaAgainstKotlinTestGenerated extends AbstractCompileJavaAg
             @TestMetadata("TraitImpl.kt")
             public void testTraitImpl() throws Exception {
                 runTest("compiler/testData/compileJavaAgainstKotlin/method/TraitImpl.kt");
+            }
+
+            @TestMetadata("TypeParamInInner.kt")
+            public void testTypeParamInInner() throws Exception {
+                runTest("compiler/testData/compileJavaAgainstKotlin/method/TypeParamInInner.kt");
             }
 
             @TestMetadata("Vararg.kt")

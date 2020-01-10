@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -41,6 +41,11 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
             KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/annotations"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
         }
 
+        @TestMetadata("nestedAnnotation.kt")
+        public void testNestedAnnotation() throws Exception {
+            runTest("compiler/testData/codegen/box/annotations/nestedAnnotation.kt");
+        }
+
         @TestMetadata("nestedClassesInAnnotations.kt")
         public void testNestedClassesInAnnotations() throws Exception {
             runTest("compiler/testData/codegen/box/annotations/nestedClassesInAnnotations.kt");
@@ -71,6 +76,19 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
 
             public void testAllFilesPresentInAnnotatedLambda() throws Exception {
                 KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/annotations/annotatedLambda"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+            }
+        }
+
+        @TestMetadata("compiler/testData/codegen/box/annotations/typeAnnotations")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class TypeAnnotations extends AbstractIrJsCodegenBoxTest {
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest0(this::doTest, TargetBackend.JS_IR, testDataFilePath);
+            }
+
+            public void testAllFilesPresentInTypeAnnotations() throws Exception {
+                KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/annotations/typeAnnotations"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
             }
         }
     }
@@ -5264,6 +5282,11 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
             runTestWithPackageReplacement("compiler/testData/codegen/box/coroutines/statementLikeLastExpression.kt", "kotlin.coroutines");
         }
 
+        @TestMetadata("stopAfter.kt")
+        public void testStopAfter() throws Exception {
+            runTest("compiler/testData/codegen/box/coroutines/stopAfter.kt");
+        }
+
         @TestMetadata("suspendCallsInArguments.kt")
         public void testSuspendCallsInArguments_1_3() throws Exception {
             runTestWithPackageReplacement("compiler/testData/codegen/box/coroutines/suspendCallsInArguments.kt", "kotlin.coroutines");
@@ -9989,6 +10012,11 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
         @TestMetadata("defaultFunctionsFromAnyForInlineClass.kt")
         public void testDefaultFunctionsFromAnyForInlineClass() throws Exception {
             runTest("compiler/testData/codegen/box/inlineClasses/defaultFunctionsFromAnyForInlineClass.kt");
+        }
+
+        @TestMetadata("defaultWithInlineClassArgument.kt")
+        public void testDefaultWithInlineClassArgument() throws Exception {
+            runTest("compiler/testData/codegen/box/inlineClasses/defaultWithInlineClassArgument.kt");
         }
 
         @TestMetadata("elvisWithInlineClassAndNullConstant.kt")
@@ -16491,6 +16519,32 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
             @TestMetadata("forInUntilIntMinValueReversed.kt")
             public void testForInUntilIntMinValueReversed() throws Exception {
                 runTest("compiler/testData/codegen/box/ranges/forWithPossibleOverflow/forInUntilIntMinValueReversed.kt");
+            }
+        }
+
+        @TestMetadata("compiler/testData/codegen/box/ranges/javaInterop")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class JavaInterop extends AbstractIrJsCodegenBoxTest {
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest0(this::doTest, TargetBackend.JS_IR, testDataFilePath);
+            }
+
+            public void testAllFilesPresentInJavaInterop() throws Exception {
+                KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/ranges/javaInterop"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+            }
+
+            @TestMetadata("compiler/testData/codegen/box/ranges/javaInterop/withIndex")
+            @TestDataPath("$PROJECT_ROOT")
+            @RunWith(JUnit3RunnerWithInners.class)
+            public static class WithIndex extends AbstractIrJsCodegenBoxTest {
+                private void runTest(String testDataFilePath) throws Exception {
+                    KotlinTestUtils.runTest0(this::doTest, TargetBackend.JS_IR, testDataFilePath);
+                }
+
+                public void testAllFilesPresentInWithIndex() throws Exception {
+                    KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/ranges/javaInterop/withIndex"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+                }
             }
         }
 

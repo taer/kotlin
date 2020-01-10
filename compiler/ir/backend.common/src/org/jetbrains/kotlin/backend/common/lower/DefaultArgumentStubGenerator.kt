@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.backend.common.lower
 
 import org.jetbrains.kotlin.backend.common.*
-import org.jetbrains.kotlin.backend.common.descriptors.*
+import org.jetbrains.kotlin.backend.common.descriptors.synthesizedString
 import org.jetbrains.kotlin.backend.common.ir.*
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -22,7 +22,10 @@ import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
-import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.defaultType
+import org.jetbrains.kotlin.ir.types.isNullable
+import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
@@ -46,7 +49,8 @@ open class DefaultArgumentStubGenerator(
     }
 
     private fun lower(irFunction: IrFunction): List<IrFunction> {
-        val newIrFunction = irFunction.generateDefaultsFunction(context, skipInlineMethods, skipExternalMethods)
+        val visibility = defaultArgumentStubVisibility(irFunction)
+        val newIrFunction = irFunction.generateDefaultsFunction(context, skipInlineMethods, skipExternalMethods, visibility)
             ?: return listOf(irFunction)
         if (newIrFunction.origin == IrDeclarationOrigin.FAKE_OVERRIDE) {
             return listOf(irFunction, newIrFunction)
@@ -182,6 +186,8 @@ open class DefaultArgumentStubGenerator(
         error("This method should be overridden")
     }
 
+    protected open fun defaultArgumentStubVisibility(function: IrFunction) = Visibilities.PUBLIC
+
     private fun log(msg: () -> String) = context.log { "DEFAULT-REPLACER: ${msg()}" }
 }
 
@@ -268,8 +274,8 @@ open class DefaultParameterInjector(
         val startOffset = expression.startOffset
         val endOffset = expression.endOffset
         val declaration = expression.symbol.owner
-
-        val stubOverride = declaration.generateDefaultsFunction(context, skipInline, skipExternalMethods) ?: return null
+        val visibility = defaultArgumentStubVisibility(declaration)
+        val stubOverride = declaration.generateDefaultsFunction(context, skipInline, skipExternalMethods, visibility) ?: return null
         // We *have* to resolve the fake override here since on the JVM, a default stub for a function implemented
         // in an interface does not leave an abstract method after being moved to DefaultImpls (see InterfaceLowering).
         // Calling the fake override on an implementation of that interface would then result in a call to a method
@@ -316,6 +322,8 @@ open class DefaultParameterInjector(
     protected open fun nullConst(startOffset: Int, endOffset: Int, type: IrType): IrExpression =
         IrConstImpl.defaultValueForType(startOffset, endOffset, type)
 
+    protected open fun defaultArgumentStubVisibility(function: IrFunction) = Visibilities.PUBLIC
+
     private fun log(msg: () -> String) = context.log { "DEFAULT-INJECTOR: ${msg()}" }
 }
 
@@ -330,31 +338,52 @@ class DefaultParameterCleaner constructor(val context: CommonBackendContext) : F
 private fun IrFunction.generateDefaultsFunction(
     context: CommonBackendContext,
     skipInlineMethods: Boolean,
-    skipExternalMethods: Boolean
-): IrFunction? = context.ir.defaultParameterDeclarationsCache[this] ?: when {
-    skipInlineMethods && isInline -> null
-    skipExternalMethods && isExternalOrInheritedFromExternal() -> null
-    valueParameters.any { it.defaultValue != null } ->
-        generateDefaultsFunctionImpl(context, IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER).also {
-            context.ir.defaultParameterDeclarationsCache[this] = it
-        }
-    this is IrSimpleFunction -> {
+    skipExternalMethods: Boolean,
+    visibility: Visibility
+): IrFunction? {
+    if (skipInlineMethods && isInline) return null
+    if (skipExternalMethods && isExternalOrInheritedFromExternal()) return null
+    context.ir.defaultParameterDeclarationsCache[this]?.let { return it }
+    if (this is IrSimpleFunction) {
         // If this is an override of a function with default arguments, produce a fake override of a default stub.
         val overriddenStubs = overriddenSymbols.mapNotNull {
-            it.owner.generateDefaultsFunction(context, skipInlineMethods, skipExternalMethods)?.symbol as IrSimpleFunctionSymbol?
+            it.owner.generateDefaultsFunction(
+                context,
+                skipInlineMethods,
+                skipExternalMethods,
+                visibility
+            )?.symbol as IrSimpleFunctionSymbol?
         }
-        if (overriddenStubs.isNotEmpty())
-            generateDefaultsFunctionImpl(context, IrDeclarationOrigin.FAKE_OVERRIDE).also {
+        if (overriddenStubs.isNotEmpty()) {
+            return generateDefaultsFunctionImpl(context, IrDeclarationOrigin.FAKE_OVERRIDE, visibility).also {
                 (it as IrSimpleFunction).overriddenSymbols.addAll(overriddenStubs)
                 context.ir.defaultParameterDeclarationsCache[this] = it
             }
-        else
-            null
+        }
     }
-    else -> null
+    // Note: this is intentionally done *after* checking for overrides. While normally `override fun`s
+    // have no default parameters, there is an exception in case of interface delegation:
+    //     interface I {
+    //         fun f(x: Int = 1)
+    //     }
+    //     class C(val y: I) : I by y {
+    //         // implicit `override fun f(x: Int) = y.f(x)` has a default value for `x`
+    //     }
+    // Since this bug causes the metadata serializer to write the "has default value" flag into compiled
+    // binaries, it's way too late to fix it. Hence the workaround.
+    if (valueParameters.any { it.defaultValue != null }) {
+        return generateDefaultsFunctionImpl(context, IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER, visibility).also {
+            context.ir.defaultParameterDeclarationsCache[this] = it
+        }
+    }
+    return null
 }
 
-private fun IrFunction.generateDefaultsFunctionImpl(context: CommonBackendContext, newOrigin: IrDeclarationOrigin): IrFunction {
+private fun IrFunction.generateDefaultsFunctionImpl(
+    context: CommonBackendContext,
+    newOrigin: IrDeclarationOrigin,
+    newVisibility: Visibility
+): IrFunction {
     val newFunction = when (this) {
         is IrConstructor ->
             buildConstructor {
@@ -363,7 +392,7 @@ private fun IrFunction.generateDefaultsFunctionImpl(context: CommonBackendContex
                 isExternal = false
                 isPrimary = false
                 isExpect = false
-                visibility = Visibilities.PUBLIC
+                visibility = newVisibility
             }
         is IrSimpleFunction ->
             buildFunWithDescriptorForInlining(descriptor) {
@@ -373,7 +402,7 @@ private fun IrFunction.generateDefaultsFunctionImpl(context: CommonBackendContex
                 modality = Modality.FINAL
                 isExternal = false
                 isTailrec = false
-                visibility = Visibilities.PUBLIC
+                visibility = newVisibility
             }
         else -> throw IllegalStateException("Unknown function type")
     }

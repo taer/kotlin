@@ -25,7 +25,7 @@ open class NodeJsRootExtension(val rootProject: Project) {
 
     var download = true
     var nodeDownloadBaseUrl = "https://nodejs.org/dist"
-    var nodeVersion = "10.15.3"
+    var nodeVersion = "12.14.0"
 
     var nodeCommand = "node"
 

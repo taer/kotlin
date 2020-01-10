@@ -267,14 +267,12 @@ class FirRenderer(builder: StringBuilder) : FirVisitorVoid() {
                     prefix + if (declaration.isVal) "val" else "var"
                 }
                 is FirField -> "field"
+                is FirEnumEntry -> "enum entry"
                 else -> "unknown"
             }
         )
     }
 
-    override fun visitEnumEntry(enumEntry: FirEnumEntry) {
-        visitRegularClass(enumEntry)
-    }
 
 
     private fun List<FirDeclaration>.renderDeclarations() {
@@ -309,6 +307,15 @@ class FirRenderer(builder: StringBuilder) : FirVisitorVoid() {
 
     override fun visitSealedClass(sealedClass: FirSealedClass) {
         visitRegularClass(sealedClass)
+    }
+
+    override fun visitEnumEntry(enumEntry: FirEnumEntry) {
+        enumEntry.annotations.renderAnnotations()
+        visitCallableDeclaration(enumEntry)
+        enumEntry.initializer?.let {
+            print(" = ")
+            it.accept(this)
+        }
     }
 
     override fun visitAnonymousObject(anonymousObject: FirAnonymousObject) {

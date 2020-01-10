@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -125,6 +125,11 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
             runTest("compiler/testData/ir/irText/classes/enumWithSecondaryCtor.kt");
         }
 
+        @TestMetadata("implicitNotNullOnDelegatedImplementation.kt")
+        public void testImplicitNotNullOnDelegatedImplementation() throws Exception {
+            runTest("compiler/testData/ir/irText/classes/implicitNotNullOnDelegatedImplementation.kt");
+        }
+
         @TestMetadata("initBlock.kt")
         public void testInitBlock() throws Exception {
             runTest("compiler/testData/ir/irText/classes/initBlock.kt");
@@ -133,6 +138,11 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
         @TestMetadata("initVal.kt")
         public void testInitVal() throws Exception {
             runTest("compiler/testData/ir/irText/classes/initVal.kt");
+        }
+
+        @TestMetadata("initValInLambda.kt")
+        public void testInitValInLambda() throws Exception {
+            runTest("compiler/testData/ir/irText/classes/initValInLambda.kt");
         }
 
         @TestMetadata("initVar.kt")
@@ -286,6 +296,11 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
         @TestMetadata("kt29833.kt")
         public void testKt29833() throws Exception {
             runTest("compiler/testData/ir/irText/declarations/kt29833.kt");
+        }
+
+        @TestMetadata("kt35550.kt")
+        public void testKt35550() throws Exception {
+            runTest("compiler/testData/ir/irText/declarations/kt35550.kt");
         }
 
         @TestMetadata("localClassWithOverrides.kt")
@@ -1071,6 +1086,11 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
             runTest("compiler/testData/ir/irText/expressions/multipleThisReferences.kt");
         }
 
+        @TestMetadata("nullCheckOnLambdaReturn.kt")
+        public void testNullCheckOnLambdaReturn() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/nullCheckOnLambdaReturn.kt");
+        }
+
         @TestMetadata("objectAsCallable.kt")
         public void testObjectAsCallable() throws Exception {
             runTest("compiler/testData/ir/irText/expressions/objectAsCallable.kt");
@@ -1399,6 +1419,11 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
 
             public void testAllFilesPresentInSam() throws Exception {
                 KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/expressions/sam"), Pattern.compile("^(.+)\\.kt$"), null, true);
+            }
+
+            @TestMetadata("genericSamProjectedOut.kt")
+            public void testGenericSamProjectedOut() throws Exception {
+                runTest("compiler/testData/ir/irText/expressions/sam/genericSamProjectedOut.kt");
             }
 
             @TestMetadata("samByProjectedType.kt")

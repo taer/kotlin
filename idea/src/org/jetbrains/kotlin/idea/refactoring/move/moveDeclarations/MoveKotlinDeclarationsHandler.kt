@@ -24,13 +24,13 @@ import com.intellij.psi.*
 import org.jetbrains.kotlin.idea.refactoring.KotlinRefactoringSettings
 import com.intellij.refactoring.RefactoringBundle
 import com.intellij.refactoring.move.MoveCallback
-import com.intellij.refactoring.move.MoveHandlerDelegate
 import com.intellij.refactoring.move.moveClassesOrPackages.MoveClassesOrPackagesImpl
 import com.intellij.refactoring.move.moveFilesOrDirectories.MoveFilesOrDirectoriesUtil
 import com.intellij.refactoring.util.CommonRefactoringUtil
 import org.jetbrains.kotlin.asJava.unwrapped
 import org.jetbrains.kotlin.idea.core.getPackage
 import org.jetbrains.kotlin.idea.refactoring.canRefactor
+import org.jetbrains.kotlin.idea.refactoring.move.MoveHandlerDelegateCompat
 import org.jetbrains.kotlin.idea.refactoring.move.moveDeclarations.ui.KotlinAwareMoveFilesOrDirectoriesDialog
 import org.jetbrains.kotlin.idea.refactoring.move.moveDeclarations.ui.KotlinSelectNestedClassRefactoringDialog
 import org.jetbrains.kotlin.idea.refactoring.move.moveDeclarations.ui.MoveKotlinNestedClassesDialog
@@ -92,7 +92,7 @@ private val defaultHandlerActions = object : MoveKotlinDeclarationsHandlerAction
 }
 
 class MoveKotlinDeclarationsHandler internal constructor(private val handlerActions: MoveKotlinDeclarationsHandlerActions) :
-    MoveHandlerDelegate() {
+    MoveHandlerDelegateCompat() {
 
     constructor() : this(defaultHandlerActions)
 
@@ -267,7 +267,7 @@ class MoveKotlinDeclarationsHandler internal constructor(private val handlerActi
                 || element.parent?.let { recursivelyTryToMove(it, project, dataContext, reference, editor) } ?: false
     }
 
-    override fun canMove(elements: Array<out PsiElement>, targetContainer: PsiElement?): Boolean {
+    override fun canMove(elements: Array<out PsiElement>, targetContainer: PsiElement?, reference: PsiReference?): Boolean {
         return canMove(elements, targetContainer, false)
     }
 

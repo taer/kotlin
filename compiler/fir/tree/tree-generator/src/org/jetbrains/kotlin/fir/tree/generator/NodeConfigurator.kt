@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.fir.tree.generator.FieldSets.modality
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.name
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.receivers
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.returnTypeRef
+import org.jetbrains.kotlin.fir.tree.generator.FieldSets.scopeProvider
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.status
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.superTypeRefs
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.symbol
@@ -216,6 +217,7 @@ object NodeConfigurator : AbstractFieldConfigurator() {
             +superTypeRefs(withReplace = true)
             +declarations
             +annotations
+            +scopeProvider
         }
 
         regularClass.configure {
@@ -239,11 +241,6 @@ object NodeConfigurator : AbstractFieldConfigurator() {
             +symbol("FirTypeAliasSymbol")
             +field("expandedTypeRef", typeRef, withReplace = true)
             +annotations
-        }
-
-        enumEntry.configure {
-            +arguments.withTransform()
-            +field(typeRef)
         }
 
         anonymousFunction.configure {
@@ -344,6 +341,11 @@ object NodeConfigurator : AbstractFieldConfigurator() {
             +field("setter", propertyAccessor, nullable = true).withTransform()
             +annotations
             needTransformOtherChildren()
+        }
+
+        enumEntry.configure {
+            parentArg(variable, "F", enumEntry)
+            parentArg(callableMemberDeclaration, "F", enumEntry)
         }
 
         field.configure {

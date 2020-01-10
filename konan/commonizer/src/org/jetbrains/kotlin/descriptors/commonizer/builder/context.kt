@@ -7,14 +7,15 @@ package org.jetbrains.kotlin.descriptors.commonizer.builder
 
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.descriptors.*
-import org.jetbrains.kotlin.descriptors.commonizer.CommonizedGroup
-import org.jetbrains.kotlin.descriptors.commonizer.CommonizedGroupMap
+import org.jetbrains.kotlin.descriptors.commonizer.StatsCollector
 import org.jetbrains.kotlin.descriptors.commonizer.Target
-import org.jetbrains.kotlin.descriptors.commonizer.createKotlinNativeForwardDeclarationsModule
-import org.jetbrains.kotlin.descriptors.commonizer.isUnderKotlinNativeSyntheticPackages
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.CirRootNode
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.dimension
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.indexOfCommon
+import org.jetbrains.kotlin.descriptors.commonizer.utils.CommonizedGroup
+import org.jetbrains.kotlin.descriptors.commonizer.utils.CommonizedGroupMap
+import org.jetbrains.kotlin.descriptors.commonizer.utils.createKotlinNativeForwardDeclarationsModule
+import org.jetbrains.kotlin.descriptors.commonizer.utils.isUnderKotlinNativeSyntheticPackages
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.name.FqName
@@ -98,7 +99,8 @@ class DeclarationsBuilderCache(dimension: Int) {
 class GlobalDeclarationsBuilderComponents(
     val storageManager: StorageManager,
     val targetComponents: List<TargetDeclarationsBuilderComponents>,
-    val cache: DeclarationsBuilderCache
+    val cache: DeclarationsBuilderCache,
+    val statsCollector: StatsCollector?
 ) {
     init {
         check(targetComponents.size > 1)
@@ -144,7 +146,10 @@ class TargetDeclarationsBuilderComponents(
     }
 }
 
-fun CirRootNode.createGlobalBuilderComponents(storageManager: StorageManager): GlobalDeclarationsBuilderComponents {
+fun CirRootNode.createGlobalBuilderComponents(
+    storageManager: StorageManager,
+    statsCollector: StatsCollector?
+): GlobalDeclarationsBuilderComponents {
     val cache = DeclarationsBuilderCache(dimension)
 
     val targetContexts = (0 until dimension).map { index ->
@@ -166,7 +171,7 @@ fun CirRootNode.createGlobalBuilderComponents(storageManager: StorageManager): G
         )
     }
 
-    return GlobalDeclarationsBuilderComponents(storageManager, targetContexts, cache)
+    return GlobalDeclarationsBuilderComponents(storageManager, targetContexts, cache, statsCollector)
 }
 
 interface TypeParameterResolver {

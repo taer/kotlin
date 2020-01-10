@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -33,12 +33,12 @@ import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirField
+import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSealedClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
-import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirContractDescriptionOwner
 import org.jetbrains.kotlin.fir.declarations.FirMemberFunction
@@ -236,6 +236,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitElement(field)
     }
 
+    open fun visitEnumEntry(enumEntry: FirEnumEntry) {
+        visitElement(enumEntry)
+    }
+
     open fun <F : FirClassLikeDeclaration<F>> visitClassLikeDeclaration(classLikeDeclaration: FirClassLikeDeclaration<F>) {
         visitElement(classLikeDeclaration)
     }
@@ -254,10 +258,6 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     open fun visitTypeAlias(typeAlias: FirTypeAlias) {
         visitElement(typeAlias)
-    }
-
-    open fun visitEnumEntry(enumEntry: FirEnumEntry) {
-        visitElement(enumEntry)
     }
 
     open fun <F : FirFunction<F>> visitFunction(function: FirFunction<F>) {
@@ -692,6 +692,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitField(field)
     }
 
+    final override fun visitEnumEntry(enumEntry: FirEnumEntry, data: Nothing?) {
+        visitEnumEntry(enumEntry)
+    }
+
     final override fun <F : FirClassLikeDeclaration<F>> visitClassLikeDeclaration(classLikeDeclaration: FirClassLikeDeclaration<F>, data: Nothing?) {
         visitClassLikeDeclaration(classLikeDeclaration)
     }
@@ -710,10 +714,6 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     final override fun visitTypeAlias(typeAlias: FirTypeAlias, data: Nothing?) {
         visitTypeAlias(typeAlias)
-    }
-
-    final override fun visitEnumEntry(enumEntry: FirEnumEntry, data: Nothing?) {
-        visitEnumEntry(enumEntry)
     }
 
     final override fun <F : FirFunction<F>> visitFunction(function: FirFunction<F>, data: Nothing?) {

@@ -5,10 +5,12 @@
 
 package org.jetbrains.kotlin.descriptors.commonizer.builder
 
-import org.jetbrains.kotlin.descriptors.*
-import org.jetbrains.kotlin.descriptors.commonizer.CommonizedGroup
+import org.jetbrains.kotlin.descriptors.ClassConstructorDescriptor
+import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.ClassifierDescriptorWithTypeParameters
+import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.*
-import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.indexOfCommon
+import org.jetbrains.kotlin.descriptors.commonizer.utils.CommonizedGroup
 import org.jetbrains.kotlin.name.FqName
 
 internal fun CirClassNode.buildDescriptors(
@@ -24,6 +26,9 @@ internal fun CirClassNode.buildDescriptors(
     }
 
     commonClass?.buildDescriptor(components, output, indexOfCommon, containingDeclarations, fqName, isExpect = true)
+
+    // log stats
+    components.statsCollector?.logStats(output.toList())
 }
 
 internal fun CirClass.buildDescriptor(
@@ -77,6 +82,9 @@ internal fun CirClassConstructorNode.buildDescriptors(
     }
 
     commonConstructor?.buildDescriptor(components, output, indexOfCommon, containingDeclarations, isExpect = true)
+
+    // log stats
+    components.statsCollector?.logStats(output.toList())
 }
 
 private fun CirClassConstructor.buildDescriptor(

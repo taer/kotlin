@@ -18,12 +18,14 @@ import org.jetbrains.kotlin.fir.deserialization.FirBuiltinAnnotationDeserializer
 import org.jetbrains.kotlin.fir.deserialization.FirDeserializationContext
 import org.jetbrains.kotlin.fir.deserialization.deserializeClassToSymbol
 import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
-import org.jetbrains.kotlin.fir.resolve.ScopeSession
+import org.jetbrains.kotlin.fir.resolve.constructClassType
 import org.jetbrains.kotlin.fir.resolve.getOrPut
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.KotlinScopeProvider
 import org.jetbrains.kotlin.fir.scopes.impl.nestedClassifierScope
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirResolvedTypeRefImpl
 import org.jetbrains.kotlin.metadata.ProtoBuf
@@ -40,8 +42,11 @@ import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.firstNotNullResult
 import java.io.InputStream
 
-class FirLibrarySymbolProviderImpl(val session: FirSession) : FirSymbolProvider() {
-    private class BuiltInsPackageFragment(stream: InputStream, val fqName: FqName, val session: FirSession) {
+class FirLibrarySymbolProviderImpl(val session: FirSession, val kotlinScopeProvider: KotlinScopeProvider) : FirSymbolProvider() {
+    private class BuiltInsPackageFragment(
+        stream: InputStream, val fqName: FqName, val session: FirSession,
+        val kotlinScopeProvider: KotlinScopeProvider
+    ) {
         lateinit var version: BuiltInsBinaryVersion
 
         val packageProto: ProtoBuf.PackageFragment = run {
@@ -81,30 +86,16 @@ class FirLibrarySymbolProviderImpl(val session: FirSession) : FirSymbolProvider(
             parentContext: FirDeserializationContext? = null
         ): FirRegularClassSymbol? {
             val classIdExists = classId in classDataFinder.allClassIds
-            val shouldBeEnumEntry = !classIdExists && classId.outerClassId in classDataFinder.allClassIds
-            if (!classIdExists && !shouldBeEnumEntry) return null
-            if (shouldBeEnumEntry) {
-                val outerClassData = classDataFinder.findClassData(classId.outerClassId!!)!!
-                val outerClassProto = outerClassData.classProto
-                if (outerClassProto.enumEntryList.none { nameResolver.getName(it.name) == classId.shortClassName }) {
-                    return null
-                }
-            }
+            if (!classIdExists) return null
             return lookup.getOrPut(classId, { FirRegularClassSymbol(classId) }) { symbol ->
-                if (shouldBeEnumEntry) {
-                    FirEnumEntryImpl(null, session, classId.shortClassName, symbol).apply {
-                        resolvePhase = FirResolvePhase.DECLARATIONS
-                    }
-                } else {
-                    val classData = classDataFinder.findClassData(classId)!!
-                    val classProto = classData.classProto
+                val classData = classDataFinder.findClassData(classId)!!
+                val classProto = classData.classProto
 
-                    deserializeClassToSymbol(
-                        classId, classProto, symbol, nameResolver, session,
-                        null, parentContext,
-                        this::findAndDeserializeClass
-                    )
-                }
+                deserializeClassToSymbol(
+                    classId, classProto, symbol, nameResolver, session,
+                    null, kotlinScopeProvider, parentContext,
+                    this::findAndDeserializeClass
+                )
             }
         }
 
@@ -123,15 +114,6 @@ class FirLibrarySymbolProviderImpl(val session: FirSession) : FirSymbolProvider(
         }
     }
 
-    override fun getClassUseSiteMemberScope(
-        classId: ClassId,
-        useSiteSession: FirSession,
-        scopeSession: ScopeSession
-    ): FirScope? {
-        val symbol = this.getClassLikeSymbolByFqName(classId) ?: return null
-        return buildDefaultUseSiteMemberScope(symbol.fir, useSiteSession, scopeSession)
-    }
-
     override fun getPackage(fqName: FqName): FqName? {
         if (allPackageFragments.containsKey(fqName)) return fqName
         return null
@@ -145,23 +127,26 @@ class FirLibrarySymbolProviderImpl(val session: FirSession) : FirSymbolProvider(
         return packageFqNames.map { fqName ->
             val resourcePath = BuiltInSerializerProtocol.getBuiltInsFilePath(fqName)
             val inputStream = streamProvider(resourcePath) ?: throw IllegalStateException("Resource not found in classpath: $resourcePath")
-            BuiltInsPackageFragment(inputStream, fqName, session)
+            BuiltInsPackageFragment(inputStream, fqName, session, kotlinScopeProvider)
         }
     }
 
     private val allPackageFragments = loadBuiltIns().groupBy { it.fqName }
 
-    private val fictitiousFunctionSymbols = mutableMapOf<Int, FirRegularClassSymbol>()
+    private data class SyntheticFunctionalInterfaceSymbolKey(val kind: FunctionClassDescriptor.Kind, val arity: Int)
 
-    override fun getClassLikeSymbolByFqName(classId: ClassId): FirRegularClassSymbol? {
-        return allPackageFragments[classId.packageFqName]?.firstNotNullResult {
-            it.getClassLikeSymbolByFqName(classId)
-        } ?: with(classId) {
+    private val syntheticFunctionalInterfaceSymbols = mutableMapOf<SyntheticFunctionalInterfaceSymbolKey, FirRegularClassSymbol>()
+
+
+    private fun FunctionClassDescriptor.Kind.classId(arity: Int) = ClassId(packageFqName, numberedClassName(arity))
+
+    private fun trySyntheticFunctionalInterface(classId: ClassId): FirRegularClassSymbol? {
+        return with(classId) {
             val className = relativeClassName.asString()
             val kind = FunctionClassDescriptor.Kind.byClassNamePrefix(packageFqName, className) ?: return@with null
             val prefix = kind.classNamePrefix
             val arity = className.substring(prefix.length).toIntOrNull() ?: return null
-            fictitiousFunctionSymbols.getOrPut(arity) {
+            syntheticFunctionalInterfaceSymbols.getOrPut(SyntheticFunctionalInterfaceSymbolKey(kind, arity)) {
                 val status = FirDeclarationStatusImpl(Visibilities.PUBLIC, Modality.ABSTRACT).apply {
                     isExpect = false
                     isActual = false
@@ -177,6 +162,7 @@ class FirLibrarySymbolProviderImpl(val session: FirSession) : FirSymbolProvider(
                         relativeClassName.shortName(),
                         status,
                         ClassKind.INTERFACE,
+                        kotlinScopeProvider,
                         this
                     ).apply klass@{
                         resolvePhase = FirResolvePhase.DECLARATIONS
@@ -205,7 +191,7 @@ class FirLibrarySymbolProviderImpl(val session: FirSession) : FirSymbolProvider(
                             }
                         )
                         val name = OperatorNameConventions.INVOKE
-                        val status = FirDeclarationStatusImpl(Visibilities.PUBLIC, Modality.ABSTRACT).apply {
+                        val functionStatus = FirDeclarationStatusImpl(Visibilities.PUBLIC, Modality.ABSTRACT).apply {
                             isExpect = false
                             isActual = false
                             isOverride = false
@@ -214,36 +200,36 @@ class FirLibrarySymbolProviderImpl(val session: FirSession) : FirSymbolProvider(
                             isInline = false
                             isTailRec = false
                             isExternal = false
-                            isSuspend = false
+                            isSuspend =
+                                kind == FunctionClassDescriptor.Kind.SuspendFunction ||
+                                        kind == FunctionClassDescriptor.Kind.KSuspendFunction
                         }
+                        val typeArguments = typeParameters.map {
+                            FirResolvedTypeRefImpl(
+                                null,
+                                ConeTypeParameterTypeImpl(it.symbol.toLookupTag(), false)
+                            )
+                        }
+
                         addDeclaration(
                             FirSimpleFunctionImpl(
                                 null,
                                 this@FirLibrarySymbolProviderImpl.session,
-                                FirResolvedTypeRefImpl(
-                                    null,
-                                    ConeTypeParameterTypeImpl(
-                                        typeParameters.last().symbol.toLookupTag(),
-                                        false
-                                    )
-                                ),
+                                typeArguments.last(),
                                 null,
                                 name,
-                                status,
+                                functionStatus,
                                 FirNamedFunctionSymbol(CallableId(packageFqName, relativeClassName, name))
                             ).apply {
                                 resolvePhase = FirResolvePhase.DECLARATIONS
-                                valueParameters += this@klass.typeParameters.dropLast(1).map { typeParameter ->
-                                    val name = Name.identifier(typeParameter.name.asString().toLowerCase())
+                                valueParameters += typeArguments.dropLast(1).mapIndexed { index, typeArgument ->
+                                    val parameterName = Name.identifier("p${index + 1}")
                                     FirValueParameterImpl(
                                         null,
                                         this@FirLibrarySymbolProviderImpl.session,
-                                        FirResolvedTypeRefImpl(
-                                            null,
-                                            ConeTypeParameterTypeImpl(typeParameter.symbol.toLookupTag(), false)
-                                        ),
-                                        name,
-                                        FirVariableSymbol(name),
+                                        typeArgument,
+                                        parameterName,
+                                        FirVariableSymbol(parameterName),
                                         defaultValue = null,
                                         isCrossinline = false,
                                         isNoinline = false,
@@ -252,11 +238,41 @@ class FirLibrarySymbolProviderImpl(val session: FirSession) : FirSymbolProvider(
                                 }
                             }
                         )
-                        replaceSuperTypeRefs(listOf(session.builtinTypes.anyType))
+
+                        fun createSuperType(
+                            kind: FunctionClassDescriptor.Kind
+                        ): FirResolvedTypeRef {
+                            return FirResolvedTypeRefImpl(
+                                null,
+                                ConeClassLikeLookupTagImpl(kind.classId(arity))
+                                    .constructClassType(typeArguments.map { it.type }.toTypedArray(), isNullable = false)
+                            )
+                        }
+
+                        val superTypes = when (kind) {
+
+                            FunctionClassDescriptor.Kind.Function,
+                            FunctionClassDescriptor.Kind.SuspendFunction ->
+                                listOf(session.builtinTypes.anyType)
+
+                            FunctionClassDescriptor.Kind.KFunction ->
+                                listOf(createSuperType(FunctionClassDescriptor.Kind.Function))
+                            FunctionClassDescriptor.Kind.KSuspendFunction ->
+                                listOf(createSuperType(FunctionClassDescriptor.Kind.SuspendFunction))
+                        }
+                        replaceSuperTypeRefs(superTypes)
+
                     }
                 }
             }
         }
+    }
+
+
+    override fun getClassLikeSymbolByFqName(classId: ClassId): FirRegularClassSymbol? {
+        return allPackageFragments[classId.packageFqName]?.firstNotNullResult {
+            it.getClassLikeSymbolByFqName(classId)
+        } ?: trySyntheticFunctionalInterface(classId)
     }
 
     override fun getTopLevelCallableSymbols(packageFqName: FqName, name: Name): List<FirCallableSymbol<*>> {

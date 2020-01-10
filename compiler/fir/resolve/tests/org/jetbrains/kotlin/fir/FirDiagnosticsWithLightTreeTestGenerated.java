@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -439,6 +439,11 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
             runTest("compiler/fir/resolve/testData/resolve/expresssions/dispatchReceiver.kt");
         }
 
+        @TestMetadata("enumEntryUse.kt")
+        public void testEnumEntryUse() throws Exception {
+            runTest("compiler/fir/resolve/testData/resolve/expresssions/enumEntryUse.kt");
+        }
+
         @TestMetadata("enumValues.kt")
         public void testEnumValues() throws Exception {
             runTest("compiler/fir/resolve/testData/resolve/expresssions/enumValues.kt");
@@ -537,6 +542,11 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
         @TestMetadata("nestedVisibility.kt")
         public void testNestedVisibility() throws Exception {
             runTest("compiler/fir/resolve/testData/resolve/expresssions/nestedVisibility.kt");
+        }
+
+        @TestMetadata("objectOverrideCallViaImport.kt")
+        public void testObjectOverrideCallViaImport() throws Exception {
+            runTest("compiler/fir/resolve/testData/resolve/expresssions/objectOverrideCallViaImport.kt");
         }
 
         @TestMetadata("objectVsProperty.kt")
@@ -654,6 +664,11 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
                 KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/resolve/testData/resolve/expresssions/invoke"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
             }
 
+            @TestMetadata("doubleBrackets.kt")
+            public void testDoubleBrackets() throws Exception {
+                runTest("compiler/fir/resolve/testData/resolve/expresssions/invoke/doubleBrackets.kt");
+            }
+
             @TestMetadata("explicitReceiver.kt")
             public void testExplicitReceiver() throws Exception {
                 runTest("compiler/fir/resolve/testData/resolve/expresssions/invoke/explicitReceiver.kt");
@@ -679,9 +694,24 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
                 runTest("compiler/fir/resolve/testData/resolve/expresssions/invoke/implicitTypeOrder.kt");
             }
 
+            @TestMetadata("inBrackets.kt")
+            public void testInBrackets() throws Exception {
+                runTest("compiler/fir/resolve/testData/resolve/expresssions/invoke/inBrackets.kt");
+            }
+
+            @TestMetadata("incorrectInvokeReceiver.kt")
+            public void testIncorrectInvokeReceiver() throws Exception {
+                runTest("compiler/fir/resolve/testData/resolve/expresssions/invoke/incorrectInvokeReceiver.kt");
+            }
+
             @TestMetadata("propertyFromParameter.kt")
             public void testPropertyFromParameter() throws Exception {
                 runTest("compiler/fir/resolve/testData/resolve/expresssions/invoke/propertyFromParameter.kt");
+            }
+
+            @TestMetadata("propertyWithExtensionType.kt")
+            public void testPropertyWithExtensionType() throws Exception {
+                runTest("compiler/fir/resolve/testData/resolve/expresssions/invoke/propertyWithExtensionType.kt");
             }
 
             @TestMetadata("simple.kt")

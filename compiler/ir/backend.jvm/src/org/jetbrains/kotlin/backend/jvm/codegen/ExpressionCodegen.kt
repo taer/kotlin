@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.codegen.inline.*
 import org.jetbrains.kotlin.codegen.inline.ReifiedTypeInliner.Companion.putNeedClassReificationMarker
 import org.jetbrains.kotlin.codegen.inline.ReifiedTypeInliner.OperationKind.AS
 import org.jetbrains.kotlin.codegen.inline.ReifiedTypeInliner.OperationKind.SAFE_AS
+import org.jetbrains.kotlin.codegen.inline.coroutines.FOR_INLINE_SUFFIX
 import org.jetbrains.kotlin.codegen.intrinsics.TypeIntrinsics
 import org.jetbrains.kotlin.codegen.pseudoInsns.fakeAlwaysFalseIfeq
 import org.jetbrains.kotlin.codegen.pseudoInsns.fixStackAndJump
@@ -193,6 +194,7 @@ class ExpressionCodegen(
         val info = BlockInfo()
         val body = irFunction.body!!
         generateNonNullAssertions()
+        generateFakeContinuationConstructorIfNeeded()
         val result = body.accept(this, info)
         // If this function has an expression body, return the result of that expression.
         // Otherwise, if it does not end in a return statement, it must be void-returning,
@@ -213,6 +215,19 @@ class ExpressionCodegen(
         writeParameterInLocalVariableTable(startLabel, endLabel)
     }
 
+    private fun generateFakeContinuationConstructorIfNeeded() {
+        if (irFunction.origin != JvmLoweredDeclarationOrigin.FOR_INLINE_STATE_MACHINE_TEMPLATE_CAPTURES_CROSSINLINE_VIEW) return
+        val continuationClass = classCodegen.irClass.functions.find {
+            it.name.asString() == irFunction.name.asString().removeSuffix(FOR_INLINE_SUFFIX)
+        }?.body?.statements?.get(0) ?: error("could not find continuation for ${irFunction.render()}")
+        generateFakeContinuationConstructorCall(
+            mv,
+            classCodegen.visitor,
+            context.continuationClassBuilders[(continuationClass as IrClass).attributeOwnerId]!!,
+            irFunction
+        )
+    }
+
     private fun generateNonNullAssertions() {
         if (state.isParamAssertionsDisabled)
             return
@@ -229,14 +244,17 @@ class ExpressionCodegen(
                 irFunction.origin == IrDeclarationOrigin.BRIDGE_SPECIAL ||
                 irFunction.origin == JvmLoweredDeclarationOrigin.DEFAULT_IMPLS_BRIDGE ||
                 irFunction.origin == JvmLoweredDeclarationOrigin.JVM_STATIC_WRAPPER ||
-                irFunction.origin == JvmLoweredDeclarationOrigin.MULTIFILE_BRIDGE
+                irFunction.origin == JvmLoweredDeclarationOrigin.MULTIFILE_BRIDGE ||
+                irFunction.parentAsClass.origin == JvmLoweredDeclarationOrigin.CONTINUATION_CLASS ||
+                irFunction.parentAsClass.origin == JvmLoweredDeclarationOrigin.SUSPEND_LAMBDA
 
         if (notCallableFromJava)
             return
 
         // Do not generate non-null checks for suspend function views. When resumed the arguments
         // will be null and the actual values are taken from the continuation.
-        val isSuspendFunctionView = irFunction.origin == JvmLoweredDeclarationOrigin.SUSPEND_FUNCTION_VIEW
+        val isSuspendFunctionView = irFunction.origin == JvmLoweredDeclarationOrigin.SUSPEND_FUNCTION_VIEW ||
+                irFunction.origin == JvmLoweredDeclarationOrigin.FOR_INLINE_STATE_MACHINE_TEMPLATE_CAPTURES_CROSSINLINE_VIEW
 
         if (isSuspendFunctionView)
             return
@@ -349,8 +367,9 @@ class ExpressionCodegen(
         classCodegen.context.irIntrinsics.getIntrinsic(expression.symbol)
             ?.invoke(expression, this, data)?.let { return it }
 
-        val callable = methodSignatureMapper.mapToCallableMethod(irFunction, expression)
         val callee = expression.symbol.owner
+        require(callee.parent is IrClass) { "Unhandled intrinsic in ExpressionCodegen: ${callee.render()}" }
+        val callable = methodSignatureMapper.mapToCallableMethod(irFunction, expression)
         val callGenerator = getOrCreateCallGenerator(expression, data, callable.signature)
         val asmType = if (expression is IrConstructorCall) typeMapper.mapTypeAsDeclaration(expression.type) else expression.asmType
 
@@ -381,7 +400,7 @@ class ExpressionCodegen(
             }
             expression.symbol.descriptor is ConstructorDescriptor ->
                 throw AssertionError("IrCall with ConstructorDescriptor: ${expression.javaClass.simpleName}")
-            callee.isSuspend && !irFunction.shouldNotContainSuspendMarkers(classCodegen.context) ->
+            callee.isSuspend && !irFunction.shouldNotContainSuspendMarkers() ->
                 addInlineMarker(mv, isStartNotEnd = true)
         }
 
@@ -407,13 +426,13 @@ class ExpressionCodegen(
         expression.markLineNumber(true)
 
         // Do not generate redundant markers in continuation class.
-        if (callee.isSuspend && !irFunction.shouldNotContainSuspendMarkers(classCodegen.context)) {
+        if (callee.isSuspend && !irFunction.shouldNotContainSuspendMarkers()) {
             addSuspendMarker(mv, isStartNotEnd = true)
         }
 
         callGenerator.genCall(callable, this, expression)
 
-        if (callee.isSuspend && !irFunction.shouldNotContainSuspendMarkers(classCodegen.context)) {
+        if (callee.isSuspend && !irFunction.shouldNotContainSuspendMarkers()) {
             addSuspendMarker(mv, isStartNotEnd = false)
             addInlineMarker(mv, isStartNotEnd = false)
         }
@@ -1004,7 +1023,7 @@ class ExpressionCodegen(
             }
         }
 
-        val methodOwner = callee.parent.safeAs<IrClass>()?.let(typeMapper::mapClass) ?: MethodSignatureMapper.FAKE_OWNER_TYPE
+        val methodOwner = typeMapper.mapClass(callee.parentAsClass)
         val sourceCompiler = IrSourceCompilerForInline(state, element, callee, this, data)
 
         val reifiedTypeInliner = ReifiedTypeInliner(mappings, object : ReifiedTypeInliner.IntrinsicsSupport<IrType> {
@@ -1069,6 +1088,6 @@ class ExpressionCodegen(
         return irFunction.isInline || inlinedInto != null
     }
 
-    private val IrType.isReifiedTypeParameter: Boolean
+    val IrType.isReifiedTypeParameter: Boolean
         get() = this.classifierOrNull?.safeAs<IrTypeParameterSymbol>()?.owner?.isReified == true
 }

@@ -6,12 +6,12 @@
 package org.jetbrains.kotlin.descriptors.commonizer.builder
 
 import org.jetbrains.kotlin.descriptors.*
-import org.jetbrains.kotlin.descriptors.commonizer.CommonizedGroup
 import org.jetbrains.kotlin.descriptors.commonizer.builder.CommonizedMemberScope.Companion.plusAssign
+import org.jetbrains.kotlin.descriptors.commonizer.builder.DeclarationsBuilderVisitor1.Companion.asListContaining
 import org.jetbrains.kotlin.descriptors.commonizer.builder.DeclarationsBuilderVisitor1.Companion.noContainingDeclarations
 import org.jetbrains.kotlin.descriptors.commonizer.builder.DeclarationsBuilderVisitor1.Companion.noReturningDeclarations
-import org.jetbrains.kotlin.descriptors.commonizer.builder.DeclarationsBuilderVisitor1.Companion.asListContaining
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.*
+import org.jetbrains.kotlin.descriptors.commonizer.utils.CommonizedGroup
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 
 /** Builds and initializes the new tree of common descriptors */

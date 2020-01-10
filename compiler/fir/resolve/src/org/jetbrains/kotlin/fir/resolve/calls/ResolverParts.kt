@@ -17,10 +17,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.types.ConeKotlinErrorType
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
-import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.coneTypeSafe
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.load.java.JavaVisibilities
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -84,7 +81,11 @@ internal sealed class CheckReceivers : ResolutionStage() {
         override fun Candidate.getReceiverType(): ConeKotlinType? {
             val callableSymbol = symbol as? FirCallableSymbol<*> ?: return null
             val callable = callableSymbol.fir
-            return (callable.receiverTypeRef as FirResolvedTypeRef?)?.type
+            val receiverType = (callable.receiverTypeRef as FirResolvedTypeRef?)?.type
+            if (receiverType != null) return receiverType
+            val returnTypeRef = callable.returnTypeRef as? FirResolvedTypeRef ?: return null
+            if (!returnTypeRef.isExtensionFunctionType()) return null
+            return (returnTypeRef.type.typeArguments.firstOrNull() as? ConeTypedProjection)?.type
         }
     }
 
@@ -109,8 +110,7 @@ internal sealed class CheckReceivers : ResolutionStage() {
                     sink = sink,
                     isReceiver = true,
                     isDispatch = this is Dispatch,
-                    isSafeCall = callInfo.isSafeCall,
-                    typeProvider = callInfo.typeProvider
+                    isSafeCall = callInfo.isSafeCall
                 )
                 sink.yieldIfNeed()
             } else {
@@ -155,7 +155,6 @@ internal object CheckArguments : CheckerStage() {
                 parameter,
                 isReceiver = false,
                 isSafeCall = false,
-                typeProvider = callInfo.typeProvider,
                 sink = sink
             )
             if (candidate.system.hasContradiction) {

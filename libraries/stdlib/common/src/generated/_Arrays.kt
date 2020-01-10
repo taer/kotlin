@@ -12472,6 +12472,8 @@ public inline fun CharArray.none(predicate: (Char) -> Boolean): Boolean {
 
 /**
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun <S, T : S> Array<out T>.reduce(operation: (acc: S, T) -> S): S {
     if (isEmpty())
@@ -12485,6 +12487,8 @@ public inline fun <S, T : S> Array<out T>.reduce(operation: (acc: S, T) -> S): S
 
 /**
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun ByteArray.reduce(operation: (acc: Byte, Byte) -> Byte): Byte {
     if (isEmpty())
@@ -12498,6 +12502,8 @@ public inline fun ByteArray.reduce(operation: (acc: Byte, Byte) -> Byte): Byte {
 
 /**
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun ShortArray.reduce(operation: (acc: Short, Short) -> Short): Short {
     if (isEmpty())
@@ -12511,6 +12517,8 @@ public inline fun ShortArray.reduce(operation: (acc: Short, Short) -> Short): Sh
 
 /**
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun IntArray.reduce(operation: (acc: Int, Int) -> Int): Int {
     if (isEmpty())
@@ -12524,6 +12532,8 @@ public inline fun IntArray.reduce(operation: (acc: Int, Int) -> Int): Int {
 
 /**
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun LongArray.reduce(operation: (acc: Long, Long) -> Long): Long {
     if (isEmpty())
@@ -12537,6 +12547,8 @@ public inline fun LongArray.reduce(operation: (acc: Long, Long) -> Long): Long {
 
 /**
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun FloatArray.reduce(operation: (acc: Float, Float) -> Float): Float {
     if (isEmpty())
@@ -12550,6 +12562,8 @@ public inline fun FloatArray.reduce(operation: (acc: Float, Float) -> Float): Fl
 
 /**
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun DoubleArray.reduce(operation: (acc: Double, Double) -> Double): Double {
     if (isEmpty())
@@ -12563,6 +12577,8 @@ public inline fun DoubleArray.reduce(operation: (acc: Double, Double) -> Double)
 
 /**
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun BooleanArray.reduce(operation: (acc: Boolean, Boolean) -> Boolean): Boolean {
     if (isEmpty())
@@ -12576,6 +12592,8 @@ public inline fun BooleanArray.reduce(operation: (acc: Boolean, Boolean) -> Bool
 
 /**
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun CharArray.reduce(operation: (acc: Char, Char) -> Char): Char {
     if (isEmpty())
@@ -12592,6 +12610,8 @@ public inline fun CharArray.reduce(operation: (acc: Char, Char) -> Char): Char {
  * to current accumulator value and each element with its index in the original array.
  * @param [operation] function that takes the index of an element, current accumulator value
  * and the element itself and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun <S, T : S> Array<out T>.reduceIndexed(operation: (index: Int, acc: S, T) -> S): S {
     if (isEmpty())
@@ -12608,6 +12628,8 @@ public inline fun <S, T : S> Array<out T>.reduceIndexed(operation: (index: Int, 
  * to current accumulator value and each element with its index in the original array.
  * @param [operation] function that takes the index of an element, current accumulator value
  * and the element itself and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun ByteArray.reduceIndexed(operation: (index: Int, acc: Byte, Byte) -> Byte): Byte {
     if (isEmpty())
@@ -12624,6 +12646,8 @@ public inline fun ByteArray.reduceIndexed(operation: (index: Int, acc: Byte, Byt
  * to current accumulator value and each element with its index in the original array.
  * @param [operation] function that takes the index of an element, current accumulator value
  * and the element itself and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun ShortArray.reduceIndexed(operation: (index: Int, acc: Short, Short) -> Short): Short {
     if (isEmpty())
@@ -12640,6 +12664,8 @@ public inline fun ShortArray.reduceIndexed(operation: (index: Int, acc: Short, S
  * to current accumulator value and each element with its index in the original array.
  * @param [operation] function that takes the index of an element, current accumulator value
  * and the element itself and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun IntArray.reduceIndexed(operation: (index: Int, acc: Int, Int) -> Int): Int {
     if (isEmpty())
@@ -12656,6 +12682,8 @@ public inline fun IntArray.reduceIndexed(operation: (index: Int, acc: Int, Int) 
  * to current accumulator value and each element with its index in the original array.
  * @param [operation] function that takes the index of an element, current accumulator value
  * and the element itself and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun LongArray.reduceIndexed(operation: (index: Int, acc: Long, Long) -> Long): Long {
     if (isEmpty())
@@ -12672,6 +12700,8 @@ public inline fun LongArray.reduceIndexed(operation: (index: Int, acc: Long, Lon
  * to current accumulator value and each element with its index in the original array.
  * @param [operation] function that takes the index of an element, current accumulator value
  * and the element itself and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun FloatArray.reduceIndexed(operation: (index: Int, acc: Float, Float) -> Float): Float {
     if (isEmpty())
@@ -12688,6 +12718,8 @@ public inline fun FloatArray.reduceIndexed(operation: (index: Int, acc: Float, F
  * to current accumulator value and each element with its index in the original array.
  * @param [operation] function that takes the index of an element, current accumulator value
  * and the element itself and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun DoubleArray.reduceIndexed(operation: (index: Int, acc: Double, Double) -> Double): Double {
     if (isEmpty())
@@ -12704,6 +12736,8 @@ public inline fun DoubleArray.reduceIndexed(operation: (index: Int, acc: Double,
  * to current accumulator value and each element with its index in the original array.
  * @param [operation] function that takes the index of an element, current accumulator value
  * and the element itself and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun BooleanArray.reduceIndexed(operation: (index: Int, acc: Boolean, Boolean) -> Boolean): Boolean {
     if (isEmpty())
@@ -12720,6 +12754,8 @@ public inline fun BooleanArray.reduceIndexed(operation: (index: Int, acc: Boolea
  * to current accumulator value and each element with its index in the original array.
  * @param [operation] function that takes the index of an element, current accumulator value
  * and the element itself and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun CharArray.reduceIndexed(operation: (index: Int, acc: Char, Char) -> Char): Char {
     if (isEmpty())
@@ -12732,7 +12768,162 @@ public inline fun CharArray.reduceIndexed(operation: (index: Int, acc: Char, Cha
 }
 
 /**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun <S, T : S> Array<out T>.reduceOrNull(operation: (acc: S, T) -> S): S? {
+    if (isEmpty())
+        return null
+    var accumulator: S = this[0]
+    for (index in 1..lastIndex) {
+        accumulator = operation(accumulator, this[index])
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun ByteArray.reduceOrNull(operation: (acc: Byte, Byte) -> Byte): Byte? {
+    if (isEmpty())
+        return null
+    var accumulator = this[0]
+    for (index in 1..lastIndex) {
+        accumulator = operation(accumulator, this[index])
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun ShortArray.reduceOrNull(operation: (acc: Short, Short) -> Short): Short? {
+    if (isEmpty())
+        return null
+    var accumulator = this[0]
+    for (index in 1..lastIndex) {
+        accumulator = operation(accumulator, this[index])
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun IntArray.reduceOrNull(operation: (acc: Int, Int) -> Int): Int? {
+    if (isEmpty())
+        return null
+    var accumulator = this[0]
+    for (index in 1..lastIndex) {
+        accumulator = operation(accumulator, this[index])
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun LongArray.reduceOrNull(operation: (acc: Long, Long) -> Long): Long? {
+    if (isEmpty())
+        return null
+    var accumulator = this[0]
+    for (index in 1..lastIndex) {
+        accumulator = operation(accumulator, this[index])
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun FloatArray.reduceOrNull(operation: (acc: Float, Float) -> Float): Float? {
+    if (isEmpty())
+        return null
+    var accumulator = this[0]
+    for (index in 1..lastIndex) {
+        accumulator = operation(accumulator, this[index])
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun DoubleArray.reduceOrNull(operation: (acc: Double, Double) -> Double): Double? {
+    if (isEmpty())
+        return null
+    var accumulator = this[0]
+    for (index in 1..lastIndex) {
+        accumulator = operation(accumulator, this[index])
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun BooleanArray.reduceOrNull(operation: (acc: Boolean, Boolean) -> Boolean): Boolean? {
+    if (isEmpty())
+        return null
+    var accumulator = this[0]
+    for (index in 1..lastIndex) {
+        accumulator = operation(accumulator, this[index])
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun CharArray.reduceOrNull(operation: (acc: Char, Char) -> Char): Char? {
+    if (isEmpty())
+        return null
+    var accumulator = this[0]
+    for (index in 1..lastIndex) {
+        accumulator = operation(accumulator, this[index])
+    }
+    return accumulator
+}
+
+/**
  * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun <S, T : S> Array<out T>.reduceRight(operation: (T, acc: S) -> S): S {
     var index = lastIndex
@@ -12746,6 +12937,8 @@ public inline fun <S, T : S> Array<out T>.reduceRight(operation: (T, acc: S) -> 
 
 /**
  * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun ByteArray.reduceRight(operation: (Byte, acc: Byte) -> Byte): Byte {
     var index = lastIndex
@@ -12759,6 +12952,8 @@ public inline fun ByteArray.reduceRight(operation: (Byte, acc: Byte) -> Byte): B
 
 /**
  * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun ShortArray.reduceRight(operation: (Short, acc: Short) -> Short): Short {
     var index = lastIndex
@@ -12772,6 +12967,8 @@ public inline fun ShortArray.reduceRight(operation: (Short, acc: Short) -> Short
 
 /**
  * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun IntArray.reduceRight(operation: (Int, acc: Int) -> Int): Int {
     var index = lastIndex
@@ -12785,6 +12982,8 @@ public inline fun IntArray.reduceRight(operation: (Int, acc: Int) -> Int): Int {
 
 /**
  * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun LongArray.reduceRight(operation: (Long, acc: Long) -> Long): Long {
     var index = lastIndex
@@ -12798,6 +12997,8 @@ public inline fun LongArray.reduceRight(operation: (Long, acc: Long) -> Long): L
 
 /**
  * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun FloatArray.reduceRight(operation: (Float, acc: Float) -> Float): Float {
     var index = lastIndex
@@ -12811,6 +13012,8 @@ public inline fun FloatArray.reduceRight(operation: (Float, acc: Float) -> Float
 
 /**
  * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun DoubleArray.reduceRight(operation: (Double, acc: Double) -> Double): Double {
     var index = lastIndex
@@ -12824,6 +13027,8 @@ public inline fun DoubleArray.reduceRight(operation: (Double, acc: Double) -> Do
 
 /**
  * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun BooleanArray.reduceRight(operation: (Boolean, acc: Boolean) -> Boolean): Boolean {
     var index = lastIndex
@@ -12837,6 +13042,8 @@ public inline fun BooleanArray.reduceRight(operation: (Boolean, acc: Boolean) ->
 
 /**
  * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun CharArray.reduceRight(operation: (Char, acc: Char) -> Char): Char {
     var index = lastIndex
@@ -12853,6 +13060,8 @@ public inline fun CharArray.reduceRight(operation: (Char, acc: Char) -> Char): C
  * to each element with its index in the original array and current accumulator value.
  * @param [operation] function that takes the index of an element, the element itself
  * and current accumulator value, and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun <S, T : S> Array<out T>.reduceRightIndexed(operation: (index: Int, T, acc: S) -> S): S {
     var index = lastIndex
@@ -12870,6 +13079,8 @@ public inline fun <S, T : S> Array<out T>.reduceRightIndexed(operation: (index: 
  * to each element with its index in the original array and current accumulator value.
  * @param [operation] function that takes the index of an element, the element itself
  * and current accumulator value, and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun ByteArray.reduceRightIndexed(operation: (index: Int, Byte, acc: Byte) -> Byte): Byte {
     var index = lastIndex
@@ -12887,6 +13098,8 @@ public inline fun ByteArray.reduceRightIndexed(operation: (index: Int, Byte, acc
  * to each element with its index in the original array and current accumulator value.
  * @param [operation] function that takes the index of an element, the element itself
  * and current accumulator value, and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun ShortArray.reduceRightIndexed(operation: (index: Int, Short, acc: Short) -> Short): Short {
     var index = lastIndex
@@ -12904,6 +13117,8 @@ public inline fun ShortArray.reduceRightIndexed(operation: (index: Int, Short, a
  * to each element with its index in the original array and current accumulator value.
  * @param [operation] function that takes the index of an element, the element itself
  * and current accumulator value, and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun IntArray.reduceRightIndexed(operation: (index: Int, Int, acc: Int) -> Int): Int {
     var index = lastIndex
@@ -12921,6 +13136,8 @@ public inline fun IntArray.reduceRightIndexed(operation: (index: Int, Int, acc: 
  * to each element with its index in the original array and current accumulator value.
  * @param [operation] function that takes the index of an element, the element itself
  * and current accumulator value, and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun LongArray.reduceRightIndexed(operation: (index: Int, Long, acc: Long) -> Long): Long {
     var index = lastIndex
@@ -12938,6 +13155,8 @@ public inline fun LongArray.reduceRightIndexed(operation: (index: Int, Long, acc
  * to each element with its index in the original array and current accumulator value.
  * @param [operation] function that takes the index of an element, the element itself
  * and current accumulator value, and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun FloatArray.reduceRightIndexed(operation: (index: Int, Float, acc: Float) -> Float): Float {
     var index = lastIndex
@@ -12955,6 +13174,8 @@ public inline fun FloatArray.reduceRightIndexed(operation: (index: Int, Float, a
  * to each element with its index in the original array and current accumulator value.
  * @param [operation] function that takes the index of an element, the element itself
  * and current accumulator value, and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun DoubleArray.reduceRightIndexed(operation: (index: Int, Double, acc: Double) -> Double): Double {
     var index = lastIndex
@@ -12972,6 +13193,8 @@ public inline fun DoubleArray.reduceRightIndexed(operation: (index: Int, Double,
  * to each element with its index in the original array and current accumulator value.
  * @param [operation] function that takes the index of an element, the element itself
  * and current accumulator value, and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun BooleanArray.reduceRightIndexed(operation: (index: Int, Boolean, acc: Boolean) -> Boolean): Boolean {
     var index = lastIndex
@@ -12989,6 +13212,8 @@ public inline fun BooleanArray.reduceRightIndexed(operation: (index: Int, Boolea
  * to each element with its index in the original array and current accumulator value.
  * @param [operation] function that takes the index of an element, the element itself
  * and current accumulator value, and calculates the next accumulator value.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRight
  */
 public inline fun CharArray.reduceRightIndexed(operation: (index: Int, Char, acc: Char) -> Char): Char {
     var index = lastIndex
@@ -12997,6 +13222,159 @@ public inline fun CharArray.reduceRightIndexed(operation: (index: Int, Char, acc
     while (index >= 0) {
         accumulator = operation(index, get(index), accumulator)
         --index
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRightOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun <S, T : S> Array<out T>.reduceRightOrNull(operation: (T, acc: S) -> S): S? {
+    var index = lastIndex
+    if (index < 0) return null
+    var accumulator: S = get(index--)
+    while (index >= 0) {
+        accumulator = operation(get(index--), accumulator)
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRightOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun ByteArray.reduceRightOrNull(operation: (Byte, acc: Byte) -> Byte): Byte? {
+    var index = lastIndex
+    if (index < 0) return null
+    var accumulator = get(index--)
+    while (index >= 0) {
+        accumulator = operation(get(index--), accumulator)
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRightOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun ShortArray.reduceRightOrNull(operation: (Short, acc: Short) -> Short): Short? {
+    var index = lastIndex
+    if (index < 0) return null
+    var accumulator = get(index--)
+    while (index >= 0) {
+        accumulator = operation(get(index--), accumulator)
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRightOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun IntArray.reduceRightOrNull(operation: (Int, acc: Int) -> Int): Int? {
+    var index = lastIndex
+    if (index < 0) return null
+    var accumulator = get(index--)
+    while (index >= 0) {
+        accumulator = operation(get(index--), accumulator)
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRightOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun LongArray.reduceRightOrNull(operation: (Long, acc: Long) -> Long): Long? {
+    var index = lastIndex
+    if (index < 0) return null
+    var accumulator = get(index--)
+    while (index >= 0) {
+        accumulator = operation(get(index--), accumulator)
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRightOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun FloatArray.reduceRightOrNull(operation: (Float, acc: Float) -> Float): Float? {
+    var index = lastIndex
+    if (index < 0) return null
+    var accumulator = get(index--)
+    while (index >= 0) {
+        accumulator = operation(get(index--), accumulator)
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRightOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun DoubleArray.reduceRightOrNull(operation: (Double, acc: Double) -> Double): Double? {
+    var index = lastIndex
+    if (index < 0) return null
+    var accumulator = get(index--)
+    while (index >= 0) {
+        accumulator = operation(get(index--), accumulator)
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRightOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun BooleanArray.reduceRightOrNull(operation: (Boolean, acc: Boolean) -> Boolean): Boolean? {
+    var index = lastIndex
+    if (index < 0) return null
+    var accumulator = get(index--)
+    while (index >= 0) {
+        accumulator = operation(get(index--), accumulator)
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with last element and applying [operation] from right to left to each element and current accumulator value. Returns null if the array is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceRightOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun CharArray.reduceRightOrNull(operation: (Char, acc: Char) -> Char): Char? {
+    var index = lastIndex
+    if (index < 0) return null
+    var accumulator = get(index--)
+    while (index >= 0) {
+        accumulator = operation(get(index--), accumulator)
     }
     return accumulator
 }

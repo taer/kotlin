@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.fir.resolve.transformers.phasedFir
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.impl.FirLocalScope
+import org.jetbrains.kotlin.fir.scopes.scope
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.FirResolvedTypeRefImpl
@@ -128,7 +129,7 @@ class FirCallResolver(
             session,
             file,
             transformer.components.implicitReceiverStack
-        ) { it.resultType }
+        )
         towerResolver.reset()
 
         val consumer = createFunctionConsumer(session, name, info, this, towerResolver.collector, towerResolver)
@@ -165,7 +166,7 @@ class FirCallResolver(
             session,
             file,
             transformer.components.implicitReceiverStack
-        ) { it.resultType }
+        )
         towerResolver.reset()
 
         val consumer = createVariableAndObjectConsumer(
@@ -291,7 +292,7 @@ class FirCallResolver(
         symbol: FirClassSymbol<*>,
         typeArguments: List<FirTypeProjection>
     ): FirDelegatedConstructorCall? {
-        val scope = symbol.fir.buildUseSiteMemberScope(session, scopeSession) ?: return null
+        val scope = symbol.fir.scope(ConeSubstitutor.Empty, session, scopeSession) ?: return null
         val callInfo = CallInfo(
             CallKind.Function,
             explicitReceiver = null,
@@ -301,19 +302,14 @@ class FirCallResolver(
             session,
             file,
             implicitReceiverStack
-        ) { it.resultType }
+        )
         val candidateFactory = CandidateFactory(this, callInfo)
         val candidates = mutableListOf<Candidate>()
 
         val className = symbol.classId.shortClassName
         scope.processFunctionsByName(className) {
             if (it is FirConstructorSymbol) {
-                candidates += candidateFactory.createCandidate(
-                    it,
-                    dispatchReceiverValue = null,
-                    implicitExtensionReceiverValue = null,
-                    ExplicitReceiverKind.NO_EXPLICIT_RECEIVER
-                )
+                candidates += candidateFactory.createCandidate(it, ExplicitReceiverKind.NO_EXPLICIT_RECEIVER)
             }
             ProcessorAction.NEXT
         }
@@ -410,7 +406,7 @@ class FirCallResolver(
             expectedType,
             outerConstraintSystemBuilder,
             lhs
-        ) { it.resultType }
+        )
 
         return createCallableReferencesConsumer(session, name, info, this, resultCollector)
     }

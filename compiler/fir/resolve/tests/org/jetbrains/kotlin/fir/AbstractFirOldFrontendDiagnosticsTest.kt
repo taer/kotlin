@@ -20,11 +20,12 @@ abstract class AbstractFirOldFrontendDiagnosticsTest : AbstractFirDiagnosticsTes
 
     private fun prepareTestDataFile(originalFilePath: String, firTestDataFile: File) {
         if (!firTestDataFile.exists()) {
-            firTestDataFile.writeText(loadTestDataWithoutDiagnostics(File(originalFilePath)))
+            KotlinTestUtils.assertEqualsToFile(firTestDataFile, loadTestDataWithoutDiagnostics(File(originalFilePath)))
         }
     }
 
     override fun runAnalysis(testDataFile: File, testFiles: List<TestFile>, firFilesPerSession: Map<FirSession, List<FirFile>>) {
+        if (testFiles.any { it.directives.containsKey("FIR_IGNORE") }) return
         val failure: AssertionError? = try {
             for ((_, firFiles) in firFilesPerSession) {
                 doFirResolveTestBench(firFiles, FirTotalResolveTransformer().transformers, gc = false)

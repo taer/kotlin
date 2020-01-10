@@ -63,12 +63,15 @@ inline fun IrDeclarationContainer.addField(builder: IrFieldBuilder.() -> Unit) =
         declarations.add(field)
     }
 
-fun IrClass.addField(fieldName: String, fieldType: IrType, fieldVisibility: Visibility = Visibilities.PRIVATE): IrField =
+fun IrClass.addField(fieldName: Name, fieldType: IrType, fieldVisibility: Visibility = Visibilities.PRIVATE): IrField =
     addField {
-        name = Name.identifier(fieldName)
+        name = fieldName
         type = fieldType
         visibility = fieldVisibility
     }
+
+fun IrClass.addField(fieldName: String, fieldType: IrType, fieldVisibility: Visibility = Visibilities.PRIVATE): IrField =
+    addField(Name.identifier(fieldName), fieldType, fieldVisibility)
 
 fun IrPropertyBuilder.buildProperty(): IrProperty {
     val wrappedDescriptor = WrappedPropertyDescriptor()
@@ -176,13 +179,15 @@ fun IrDeclarationContainer.addFunction(
     returnType: IrType,
     modality: Modality = Modality.FINAL,
     isStatic: Boolean = false,
-    isSuspend: Boolean = false
+    isSuspend: Boolean = false,
+    origin: IrDeclarationOrigin = IrDeclarationOrigin.DEFINED
 ): IrSimpleFunction =
     addFunction {
         this.name = Name.identifier(name)
         this.returnType = returnType
         this.modality = modality
         this.isSuspend = isSuspend
+        this.origin = origin
     }.apply {
         if (!isStatic) {
             dispatchReceiverParameter = parentAsClass.thisReceiver!!.copyTo(this)

@@ -1352,6 +1352,8 @@ public fun <T> Sequence<T>.onEach(action: (T) -> Unit): Sequence<T> {
  * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun <S, T : S> Sequence<T>.reduce(operation: (acc: S, T) -> S): S {
     val iterator = this.iterator()
@@ -1370,6 +1372,8 @@ public inline fun <S, T : S> Sequence<T>.reduce(operation: (acc: S, T) -> S): S 
  * and the element itself and calculates the next accumulator value.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduce
  */
 public inline fun <S, T : S> Sequence<T>.reduceIndexed(operation: (index: Int, acc: S, T) -> S): S {
     val iterator = this.iterator()
@@ -1378,6 +1382,25 @@ public inline fun <S, T : S> Sequence<T>.reduceIndexed(operation: (index: Int, a
     var accumulator: S = iterator.next()
     while (iterator.hasNext()) {
         accumulator = operation(checkIndexOverflow(index++), accumulator, iterator.next())
+    }
+    return accumulator
+}
+
+/**
+ * Accumulates value starting with the first element and applying [operation] from left to right to current accumulator value and each element. Returns null if the sequence is empty.
+ *
+ * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.reduceOrNull
+ */
+@SinceKotlin("1.3")
+@ExperimentalStdlibApi
+public inline fun <S, T : S> Sequence<T>.reduceOrNull(operation: (acc: S, T) -> S): S? {
+    val iterator = this.iterator()
+    if (!iterator.hasNext()) return null
+    var accumulator: S = iterator.next()
+    while (iterator.hasNext()) {
+        accumulator = operation(accumulator, iterator.next())
     }
     return accumulator
 }

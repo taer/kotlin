@@ -45,7 +45,6 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
-import org.jetbrains.kotlin.ir.types.impl.IrErrorTypeImpl
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.ClassId
@@ -54,7 +53,6 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi2ir.PsiSourceManager
 import org.jetbrains.kotlin.types.AbstractStrictEqualityTypeChecker
-import org.jetbrains.kotlin.types.Variance
 import java.util.*
 
 class Fir2IrVisitor(
@@ -75,7 +73,7 @@ class Fir2IrVisitor(
 
     private val typeContext = session.typeContext
 
-    private val declarationStorage = Fir2IrDeclarationStorage(session, symbolTable, moduleDescriptor)
+    private val declarationStorage = Fir2IrDeclarationStorage(session, symbolTable, moduleDescriptor, irBuiltIns)
 
     private val nothingType = session.builtinTypes.nothingType.toIrType(session, declarationStorage)
 
@@ -138,6 +136,9 @@ class Fir2IrVisitor(
         return result
     }
 
+    private fun FirTypeRef.toIrType(session: FirSession, declarationStorage: Fir2IrDeclarationStorage) =
+        toIrType(session, declarationStorage, irBuiltIns)
+
     override fun visitElement(element: FirElement, data: Any?): IrElement {
         TODO("Should not be here: ${element.render()}")
     }
@@ -163,6 +164,15 @@ class Fir2IrVisitor(
     private fun FirDeclaration.toIrDeclaration(): IrDeclaration? {
         if (this is FirTypeAlias) return null
         return accept(this@Fir2IrVisitor, null) as IrDeclaration
+    }
+
+    override fun visitEnumEntry(enumEntry: FirEnumEntry, data: Any?): IrElement {
+        val irEnumEntry = declarationStorage.getIrEnumEntry(enumEntry, irParent = parentStack.last() as IrClass)
+        irEnumEntry.correspondingClass?.withParent {
+            setClassContent(enumEntry.initializer as FirAnonymousObject)
+        }
+        //irEnumEntry.initializerExpression = IrEnumConstructorCallImpl()
+        return irEnumEntry.setParentByParentStack()
     }
 
     private fun FirTypeRef.collectCallableNamesFromThisAndSupertypes(result: MutableList<Name> = mutableListOf()): List<Name> {
@@ -309,8 +319,9 @@ class Fir2IrVisitor(
     private fun IrFunction.addDispatchReceiverParameter(containingClass: IrClass) {
         val thisOrigin = IrDeclarationOrigin.DEFINED
         val thisType = containingClass.thisReceiver!!.type
+        val descriptor = WrappedValueParameterDescriptor()
         dispatchReceiverParameter = symbolTable.declareValueParameter(
-            startOffset, endOffset, thisOrigin, WrappedValueParameterDescriptor(),
+            startOffset, endOffset, thisOrigin, descriptor,
             thisType
         ) { symbol ->
             IrValueParameterImpl(
@@ -318,7 +329,7 @@ class Fir2IrVisitor(
                 Name.special("<this>"), -1, thisType,
                 varargElementType = null, isCrossinline = false, isNoinline = false
             ).setParentByParentStack()
-        }
+        }.also { descriptor.bind(it) }
     }
 
     private fun <T : IrFunction> T.setFunctionContent(
@@ -482,7 +493,7 @@ class Fir2IrVisitor(
         }
     }
 
-    private fun visitLocalVariable(variable: FirProperty, data: Any?): IrElement {
+    private fun visitLocalVariable(variable: FirProperty): IrElement {
         assert(variable.isLocal)
         val irVariable = declarationStorage.createAndSaveIrVariable(variable)
         return irVariable.setParentByParentStack().apply {
@@ -580,7 +591,7 @@ class Fir2IrVisitor(
     }
 
     override fun visitProperty(property: FirProperty, data: Any?): IrElement {
-        if (property.isLocal) return visitLocalVariable(property, data)
+        if (property.isLocal) return visitLocalVariable(property)
         val irProperty = declarationStorage.getIrProperty(property, irParent = parentStack.last() as? IrClass)
         return irProperty.setParentByParentStack().withProperty { setPropertyContent(irProperty.descriptor, property) }
     }
@@ -702,7 +713,8 @@ class Fir2IrVisitor(
                     startOffset, endOffset, type, symbol,
                     origin = calleeReference.statementOrigin()
                 )
-                else -> IrErrorCallExpressionImpl(startOffset, endOffset, type, "Unresolved reference: ${calleeReference.render()}")
+                symbol is IrEnumEntrySymbol -> IrGetEnumValueImpl(startOffset, endOffset, type, symbol)
+                else -> generateErrorCallExpression(startOffset, endOffset, calleeReference, type)
             }
         }
     }
@@ -710,7 +722,7 @@ class Fir2IrVisitor(
     private fun FirAnnotationCall.toIrExpression(): IrExpression {
         val coneType = (annotationTypeRef as? FirResolvedTypeRef)?.type as? ConeLookupTagBasedType
         val firSymbol = coneType?.lookupTag?.toSymbol(session) as? FirClassSymbol
-        val type = coneType?.toIrType(this@Fir2IrVisitor.session, declarationStorage)
+        val type = coneType?.toIrType(session, declarationStorage, irBuiltIns)
         val symbol = type?.classifierOrNull
         return convertWithOffsets { startOffset, endOffset ->
             when (symbol) {
@@ -729,7 +741,9 @@ class Fir2IrVisitor(
                     }
 
                 }
-                else -> IrErrorCallExpressionImpl(startOffset, endOffset, type ?: createErrorType(), "Unresolved reference: ${render()}")
+                else -> {
+                    IrErrorCallExpressionImpl(startOffset, endOffset, type ?: createErrorType(), "Unresolved reference: ${render()}")
+                }
             }
         }
     }
@@ -792,30 +806,51 @@ class Fir2IrVisitor(
         }
     }
 
+    private fun FirQualifiedAccess.findIrDispatchReceiver(): IrExpression? = findIrReceiver(isDispatch = true)
+
+    private fun FirQualifiedAccess.findIrExtensionReceiver(): IrExpression? = findIrReceiver(isDispatch = false)
+
+    private fun FirQualifiedAccess.findIrReceiver(isDispatch: Boolean): IrExpression? {
+        val firReceiver = if (isDispatch) dispatchReceiver else extensionReceiver
+        return firReceiver.takeIf { it !is FirNoReceiverExpression }?.toIrExpression()
+            ?: explicitReceiver?.toIrExpression() // NB: this applies to the situation when call is unresolved
+            ?: run {
+                // Object case
+                val callableReference = calleeReference as? FirResolvedNamedReference
+                val ownerClassId = (callableReference?.resolvedSymbol as? FirCallableSymbol<*>)?.callableId?.classId
+                val ownerClassSymbol = ownerClassId?.let { session.firSymbolProvider.getClassLikeSymbolByFqName(it) }
+                val firClass = (ownerClassSymbol?.fir as? FirClass)?.takeIf {
+                    it is FirAnonymousObject || it is FirRegularClass && it.classKind == ClassKind.OBJECT
+                }
+                firClass?.convertWithOffsets { startOffset, endOffset ->
+                    val irClass = declarationStorage.getIrClass(firClass, setParent = false)
+                    IrGetObjectValueImpl(startOffset, endOffset, irClass.defaultType, irClass.symbol)
+                }
+            }
+        // TODO: uncomment after fixing KT-35730
+//            ?: run {
+//                val name = if (isDispatch) "Dispatch" else "Extension"
+//                throw AssertionError(
+//                    "$name receiver expected: ${render()} to ${calleeReference.render()}"
+//                )
+//            }
+    }
+
     private fun IrExpression.applyReceivers(qualifiedAccess: FirQualifiedAccess): IrExpression {
         return when (this) {
             is IrCallImpl -> {
                 val ownerFunction = symbol.owner
                 if (ownerFunction.dispatchReceiverParameter != null) {
-                    dispatchReceiver = qualifiedAccess.dispatchReceiver.takeIf { it !is FirNoReceiverExpression }?.toIrExpression()
-                        ?: qualifiedAccess.explicitReceiver?.toIrExpression() // NB: this applies to the situation when call is unresolved
-                    if (dispatchReceiver == null) {
-                        throw AssertionError()
-                    }
+                    dispatchReceiver = qualifiedAccess.findIrDispatchReceiver()
                 } else if (ownerFunction.extensionReceiverParameter != null) {
-                    extensionReceiver = qualifiedAccess.extensionReceiver.takeIf { it !is FirNoReceiverExpression }?.toIrExpression()
-                        ?: qualifiedAccess.explicitReceiver?.toIrExpression()
-                    if (extensionReceiver == null) {
-                        throw AssertionError()
-                    }
+                    extensionReceiver = qualifiedAccess.findIrExtensionReceiver()
                 }
                 this
             }
             is IrFieldExpressionBase -> {
                 val ownerField = symbol.owner
                 if (!ownerField.isStatic) {
-                    receiver = qualifiedAccess.dispatchReceiver.takeIf { it !is FirNoReceiverExpression }?.toIrExpression()
-                        ?: qualifiedAccess.explicitReceiver?.toIrExpression()
+                    receiver = qualifiedAccess.findIrDispatchReceiver()
                 }
                 this
             }
@@ -824,13 +859,13 @@ class Fir2IrVisitor(
     }
 
     override fun visitFunctionCall(functionCall: FirFunctionCall, data: Any?): IrElement {
-        val functionCall = if (functionCall.toResolvedCallableSymbol()?.fir is FirIntegerOperator) {
+        val convertibleCall = if (functionCall.toResolvedCallableSymbol()?.fir is FirIntegerOperator) {
             functionCall.copy().transformSingle(integerApproximator, null)
         } else {
             functionCall
         }
-        return functionCall.toIrExpression(functionCall.typeRef).applyCallArguments(functionCall).applyTypeArguments(functionCall)
-            .applyReceivers(functionCall)
+        return convertibleCall.toIrExpression(convertibleCall.typeRef)
+            .applyCallArguments(convertibleCall).applyTypeArguments(convertibleCall).applyReceivers(convertibleCall)
     }
 
     override fun visitAnnotationCall(annotationCall: FirAnnotationCall, data: Any?): IrElement {
@@ -842,6 +877,17 @@ class Fir2IrVisitor(
     }
 
     override fun visitThisReceiverExpression(thisReceiverExpression: FirThisReceiverExpression, data: Any?): IrElement {
+        val calleeReference = thisReceiverExpression.calleeReference
+        if (calleeReference.labelName == null && calleeReference.boundSymbol is FirRegularClassSymbol) {
+            val dispatchReceiver = this.functionStack.lastOrNull()?.dispatchReceiverParameter
+            if (dispatchReceiver != null) {
+                // Use the dispatch receiver of the containing function
+                return thisReceiverExpression.convertWithOffsets { startOffset, endOffset ->
+                    IrGetValueImpl(startOffset, endOffset, dispatchReceiver.type, dispatchReceiver.symbol)
+                }
+            }
+        }
+        // TODO handle qualified "this" in instance methods of non-inner classes (inner class cases are handled by InnerClassesLowering)
         return visitQualifiedAccessExpression(thisReceiverExpression, data)
     }
 
@@ -877,9 +923,14 @@ class Fir2IrVisitor(
         }
     }
 
-    private fun generateErrorCallExpression(startOffset: Int, endOffset: Int, calleeReference: FirReference): IrErrorCallExpression {
+    private fun generateErrorCallExpression(
+        startOffset: Int,
+        endOffset: Int,
+        calleeReference: FirReference,
+        type: IrType? = null
+    ): IrErrorCallExpression {
         return IrErrorCallExpressionImpl(
-            startOffset, endOffset, IrErrorTypeImpl(null, emptyList(), Variance.INVARIANT),
+            startOffset, endOffset, type ?: createErrorType(),
             "Unresolved reference: ${calleeReference.render()}"
         )
     }
@@ -925,6 +976,7 @@ class Fir2IrVisitor(
         return constExpression.convertWithOffsets { startOffset, endOffset ->
             @Suppress("UNCHECKED_CAST")
             val kind = constExpression.getIrConstKind() as IrConstKind<T>
+
             @Suppress("UNCHECKED_CAST")
             val value = (constExpression.value as? Long)?.let {
                 when (kind) {
@@ -1204,6 +1256,7 @@ class Fir2IrVisitor(
             ClassId(FqName("kotlin"), FqName("Int"), false) -> irBuiltIns.intType
             ClassId(FqName("kotlin"), FqName("Float"), false) -> irBuiltIns.floatType
             ClassId(FqName("kotlin"), FqName("Double"), false) -> irBuiltIns.doubleType
+            ClassId(FqName("kotlin"), FqName("Char"), false) -> irBuiltIns.charType
             else -> {
                 return IrErrorCallExpressionImpl(
                     startOffset, endOffset, booleanType, "Comparison of arguments with unsupported type: $classId"

@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintInjecto
 import org.jetbrains.kotlin.resolve.calls.inference.components.ResultTypeResolver
 import org.jetbrains.kotlin.resolve.calls.inference.components.TrivialConstraintTypeInferenceOracle
 import org.jetbrains.kotlin.resolve.calls.inference.model.NewConstraintSystemImpl
+import org.jetbrains.kotlin.resolve.calls.tower.KotlinResolutionStatelessCallbacksImpl
 import org.jetbrains.kotlin.types.AbstractTypeApproximator
 import org.jetbrains.kotlin.types.checker.KotlinTypeRefiner
 import org.jetbrains.kotlin.types.model.SimpleTypeMarker

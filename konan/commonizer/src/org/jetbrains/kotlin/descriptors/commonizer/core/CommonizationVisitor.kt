@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.descriptors.commonizer.core
 
-import org.jetbrains.kotlin.descriptors.commonizer.CommonizedGroupMap
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.*
+import org.jetbrains.kotlin.descriptors.commonizer.utils.CommonizedGroupMap
 
 internal class CommonizationVisitor(
     private val root: CirRootNode

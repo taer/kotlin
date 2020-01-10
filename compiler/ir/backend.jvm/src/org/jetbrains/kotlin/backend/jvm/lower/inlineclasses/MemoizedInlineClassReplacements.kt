@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.declarations.buildFunWithDescriptorForInlining
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionBase
 import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
@@ -143,7 +144,6 @@ class MemoizedInlineClassReplacements {
 
         val parameterMap = mutableMapOf<IrValueParameterSymbol, IrValueParameter>()
         val replacement = buildReplacement(function) {
-            annotations += function.annotations
             metadata = function.metadata
             overriddenSymbols.addAll(overrides)
 
@@ -151,12 +151,15 @@ class MemoizedInlineClassReplacements {
                 val name = if (parameter == function.extensionReceiverParameter) Name.identifier("\$receiver") else parameter.name
                 val newParameter: IrValueParameter
                 if (parameter == function.dispatchReceiverParameter) {
-                    newParameter = parameter.copyTo(this, index = -1, name = name)
+                    newParameter = parameter.copyTo(this, index = -1, name = name, defaultValue = null)
                     dispatchReceiverParameter = newParameter
                 } else {
-                    newParameter = parameter.copyTo(this, index = index - 1, name = name)
+                    newParameter = parameter.copyTo(this, index = index - 1, name = name, defaultValue = null)
                     valueParameters.add(newParameter)
                 }
+                // Assuming that constructors and non-override functions are always replaced with the unboxed
+                // equivalent, deep-copying the value here is unnecessary. See `JvmInlineClassLowering`.
+                newParameter.defaultValue = parameter.defaultValue
                 parameterMap[parameter.symbol] = newParameter
             }
         }
@@ -166,8 +169,11 @@ class MemoizedInlineClassReplacements {
     private fun createStaticReplacement(function: IrFunction): IrReplacementFunction {
         val parameterMap = mutableMapOf<IrValueParameterSymbol, IrValueParameter>()
         val replacement = buildReplacement(function) {
-            if (function !is IrSimpleFunction || function.overriddenSymbols.isEmpty())
+            // Generate metadata for the replacement function instead of the original.
+            if (function is IrFunctionBase) {
                 metadata = function.metadata
+                function.metadata = null
+            }
 
             for ((index, parameter) in function.explicitParameters.withIndex()) {
                 val name = when (parameter) {
@@ -176,8 +182,10 @@ class MemoizedInlineClassReplacements {
                     else -> parameter.name
                 }
 
-                val newParameter = parameter.copyTo(this, index = index, name = name)
+                val newParameter = parameter.copyTo(this, index = index, name = name, defaultValue = null)
                 valueParameters.add(newParameter)
+                // See comment next to a similar line above.
+                newParameter.defaultValue = parameter.defaultValue
                 parameterMap[parameter.symbol] = newParameter
             }
         }
@@ -194,6 +202,7 @@ class MemoizedInlineClassReplacements {
             returnType = function.returnType
         }.apply {
             parent = function.parent
+            annotations += function.annotations
             if (function is IrConstructor) {
                 copyTypeParameters(function.constructedClass.typeParameters + function.typeParameters)
             } else {

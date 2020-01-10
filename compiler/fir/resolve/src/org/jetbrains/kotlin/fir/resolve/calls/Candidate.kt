@@ -18,7 +18,6 @@ import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.ConeTypeVariable
 import org.jetbrains.kotlin.fir.types.FirTypeProjection
-import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemBuilder
 import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemOperation
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
@@ -40,11 +39,16 @@ class CallInfo(
     // Three properties for callable references only
     val expectedType: ConeKotlinType? = null,
     val outerCSBuilder: ConstraintSystemBuilder? = null,
-    val lhs: DoubleColonLHS? = null,
-
-    val typeProvider: (FirExpression) -> FirTypeRef?
+    val lhs: DoubleColonLHS? = null
 ) {
     val argumentCount get() = arguments.size
+
+    fun withReceiverAsArgument(receiverExpression: FirExpression): CallInfo =
+        CallInfo(
+            callKind, explicitReceiver,
+            listOf(receiverExpression) + arguments,
+            isSafeCall, typeArguments, session, containingFile, implicitReceiverStack, expectedType, outerCSBuilder, lhs
+        )
 }
 
 enum class CandidateApplicability {
@@ -58,7 +62,7 @@ enum class CandidateApplicability {
 
 class Candidate(
     val symbol: AbstractFirBasedSymbol<*>,
-    val dispatchReceiverValue: ClassDispatchReceiverValue?,
+    val dispatchReceiverValue: ReceiverValue?,
     val implicitExtensionReceiverValue: ImplicitReceiverValue<*>?,
     val explicitReceiverKind: ExplicitReceiverKind,
     val bodyResolveComponents: BodyResolveComponents,

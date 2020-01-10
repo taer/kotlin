@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -1174,6 +1174,11 @@ public class FirOldFrontendDiagnosticsTestWithStdlibGenerated extends AbstractFi
                     KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
                 }
 
+                @TestMetadata("accessToOuterThis.kt")
+                public void testAccessToOuterThis() throws Exception {
+                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/accessToOuterThis.kt");
+                }
+
                 public void testAllFilesPresentInErrors() throws Exception {
                     KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), true);
                 }
@@ -1188,9 +1193,14 @@ public class FirOldFrontendDiagnosticsTestWithStdlibGenerated extends AbstractFi
                     runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/callInContractDescription.kt");
                 }
 
-                @TestMetadata("contractCallSites.kt")
-                public void testContractCallSites() throws Exception {
-                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/contractCallSites.kt");
+                @TestMetadata("contractCallSites.1.3.kt")
+                public void testContractCallSites_1_3() throws Exception {
+                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/contractCallSites.1.3.kt");
+                }
+
+                @TestMetadata("contractCallSites.1.4.kt")
+                public void testContractCallSites_1_4() throws Exception {
+                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/contractCallSites.1.4.kt");
                 }
 
                 @TestMetadata("emptyContract.kt")
@@ -1233,14 +1243,24 @@ public class FirOldFrontendDiagnosticsTestWithStdlibGenerated extends AbstractFi
                     runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/recursiveContractCustomContractFunction.kt");
                 }
 
-                @TestMetadata("referenceToProperty.kt")
-                public void testReferenceToProperty() throws Exception {
-                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/referenceToProperty.kt");
+                @TestMetadata("referenceToProperty.1.3.kt")
+                public void testReferenceToProperty_1_3() throws Exception {
+                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/referenceToProperty.1.3.kt");
                 }
 
-                @TestMetadata("typeReferences.kt")
-                public void testTypeReferences() throws Exception {
-                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/typeReferences.kt");
+                @TestMetadata("referenceToProperty.1.4.kt")
+                public void testReferenceToProperty_1_4() throws Exception {
+                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/referenceToProperty.1.4.kt");
+                }
+
+                @TestMetadata("typeReferences.1.3.kt")
+                public void testTypeReferences_1_3() throws Exception {
+                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/typeReferences.1.3.kt");
+                }
+
+                @TestMetadata("typeReferences.1.4.kt")
+                public void testTypeReferences_1_4() throws Exception {
+                    runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/typeReferences.1.4.kt");
                 }
 
                 @TestMetadata("unlabeledReceiver.kt")
@@ -1320,6 +1340,11 @@ public class FirOldFrontendDiagnosticsTestWithStdlibGenerated extends AbstractFi
                 runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/smartcasts/compositions.kt");
             }
 
+            @TestMetadata("contractsOnMembers.kt")
+            public void testContractsOnMembers() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/smartcasts/contractsOnMembers.kt");
+            }
+
             @TestMetadata("deeplyNested.kt")
             public void testDeeplyNested() throws Exception {
                 runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/smartcasts/deeplyNested.kt");
@@ -1358,6 +1383,11 @@ public class FirOldFrontendDiagnosticsTestWithStdlibGenerated extends AbstractFi
             @TestMetadata("receiver.kt")
             public void testReceiver() throws Exception {
                 runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/smartcasts/receiver.kt");
+            }
+
+            @TestMetadata("reifiedGeneric.kt")
+            public void testReifiedGeneric() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/smartcasts/reifiedGeneric.kt");
             }
 
             @TestMetadata("safecallAndReturnsNull.kt")
@@ -1976,6 +2006,34 @@ public class FirOldFrontendDiagnosticsTestWithStdlibGenerated extends AbstractFi
             @TestMetadata("resolveWithOnlyInputTypesAnnotation.kt")
             public void testResolveWithOnlyInputTypesAnnotation() throws Exception {
                 runTest("compiler/testData/diagnostics/testsWithStdLib/inference/annotationsForResolve/resolveWithOnlyInputTypesAnnotation.kt");
+            }
+        }
+
+        @TestMetadata("compiler/testData/diagnostics/testsWithStdLib/inference/delegates")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class Delegates extends AbstractFirOldFrontendDiagnosticsTestWithStdlib {
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+            }
+
+            public void testAllFilesPresentInDelegates() throws Exception {
+                KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithStdLib/inference/delegates"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), true);
+            }
+
+            @TestMetadata("kt31219.kt")
+            public void testKt31219() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/inference/delegates/kt31219.kt");
+            }
+
+            @TestMetadata("kt31679.kt")
+            public void testKt31679() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/inference/delegates/kt31679.kt");
+            }
+
+            @TestMetadata("kt32249.kt")
+            public void testKt32249() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/inference/delegates/kt32249.kt");
             }
         }
     }

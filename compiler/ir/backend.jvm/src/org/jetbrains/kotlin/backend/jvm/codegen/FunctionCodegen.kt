@@ -5,19 +5,23 @@
 
 package org.jetbrains.kotlin.backend.jvm.codegen
 
+import org.jetbrains.kotlin.backend.common.ir.ir2string
 import org.jetbrains.kotlin.backend.common.lower.BOUND_RECEIVER_PARAMETER
 import org.jetbrains.kotlin.backend.common.lower.BOUND_VALUE_PARAMETER
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.codegen.AsmUtil
+import org.jetbrains.kotlin.codegen.coroutines.SUSPEND_IMPL_NAME_SUFFIX
 import org.jetbrains.kotlin.codegen.mangleNameIfNeeded
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.visitAnnotableParameterCount
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.load.java.JavaVisibilities
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtElement
@@ -28,6 +32,7 @@ import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodGenericSignature
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodParameterKind
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
+import org.jetbrains.kotlin.utils.sure
 import org.jetbrains.org.objectweb.asm.MethodVisitor
 import org.jetbrains.org.objectweb.asm.Opcodes
 import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
@@ -63,51 +68,85 @@ open class FunctionCodegen(
                 functionView,
                 signature.asmMethod.returnType
             )
-        }
-
-        // Since the only arguments to anonymous object constructors are captured variables and complex
-        // super constructor arguments, there shouldn't be any annotations on them other than @NonNull,
-        // and those are meaningless on synthetic parameters. (Also, the inliner cannot handle them and
-        // will throw an exception if we generate any.)
-        if (irFunction !is IrConstructor || !irFunction.parentAsClass.isAnonymousObject) {
-            generateParameterAnnotations(functionView, methodVisitor, signature, classCodegen, context)
+            // Not generating parameter annotations for default stubs fixes KT-7892, though
+            // this certainly looks like a workaround for a javac bug.
+            if (irFunction !is IrConstructor || !irFunction.parentAsClass.shouldNotGenerateConstructorParameterAnnotations()) {
+                generateParameterAnnotations(functionView, methodVisitor, signature, classCodegen, context)
+            }
         }
 
         if (!state.classBuilderMode.generateBodies || flags.and(Opcodes.ACC_ABSTRACT) != 0 || irFunction.isExternal) {
             generateAnnotationDefaultValueIfNeeded(methodVisitor)
         } else {
             val frameMap = createFrameMapWithReceivers()
-            val irClass = context.suspendFunctionContinuations[irFunction]
-            val element = (irFunction.symbol.descriptor.psiElement
-                ?: context.suspendLambdaToOriginalFunctionMap[irFunction.parent]?.symbol?.descriptor?.psiElement) as? KtElement
-            val continuationClassBuilder = context.continuationClassBuilders[irClass]
             methodVisitor = when {
-                irFunction.isSuspend &&
-                        // We do not generate continuation and state-machine for synthetic accessors, bridges, and delegated members,
-                        // in a sense, they are tail-call
-                        !irFunction.isKnownToBeTailCall() &&
-                        // TODO: We should generate two versions of inline suspend function: one with state-machine and one without
-                        !irFunction.isInline ->
+                irFunction.hasContinuation() -> {
                     generateStateMachineForNamedFunction(
-                        irFunction, classCodegen, methodVisitor, flags, signature, continuationClassBuilder, element!!
+                        irFunction, classCodegen, methodVisitor,
+                        access = flags,
+                        signature = signature,
+                        obtainContinuationClassBuilder = {
+                            context.continuationClassBuilders[continuationClass().attributeOwnerId]!!
+                        },
+                        element = psiElement()
                     )
-                irFunction.isInvokeSuspendOfLambda(context) -> generateStateMachineForLambda(
-                    classCodegen, methodVisitor, flags, signature, element!!
+                }
+                irFunction.isInvokeSuspendOfLambda() -> generateStateMachineForLambda(
+                    classCodegen, methodVisitor, flags, signature, psiElement()
                 )
                 else -> methodVisitor
             }
             ExpressionCodegen(functionView, signature, frameMap, InstructionAdapter(methodVisitor), classCodegen, inlinedInto).generate()
             methodVisitor.visitMaxs(-1, -1)
-            continuationClassBuilder?.done()
+            if (irFunction.hasContinuation()) {
+                context.continuationClassBuilders[continuationClass().attributeOwnerId].sure {
+                    "Could not find continuation class builder for ${continuationClass().render()}"
+                }.done()
+            }
         }
         methodVisitor.visitEnd()
 
         return signature
     }
 
+    // Since the only arguments to anonymous object constructors are captured variables and complex
+    // super constructor arguments, there shouldn't be any annotations on them other than @NonNull,
+    // and those are meaningless on synthetic parameters. (Also, the inliner cannot handle them and
+    // will throw an exception if we generate any.)
+    // The same applies for continuations.
+    private fun IrClass.shouldNotGenerateConstructorParameterAnnotations() =
+        isAnonymousObject || origin == JvmLoweredDeclarationOrigin.CONTINUATION_CLASS || origin == JvmLoweredDeclarationOrigin.SUSPEND_LAMBDA
+
+    private fun psiElement(): KtElement =
+        if (irFunction.isSuspend) irFunction.symbol.descriptor.psiElement as KtElement
+        else context.suspendLambdaToOriginalFunctionMap[irFunction.parentAsClass.attributeOwnerId]!!.symbol.descriptor.psiElement as KtElement
+
+    private fun IrFunction.hasContinuation(): Boolean = isSuspend &&
+            // We do not generate continuation and state-machine for synthetic accessors, bridges, and delegated members,
+            // in a sense, they are tail-call
+            !isKnownToBeTailCall() &&
+            // TODO: We should generate two versions of inline suspend function: one with state-machine and one without
+            !isInline &&
+            // This is suspend lambda parameter of inline function
+            origin != IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA &&
+            // This is just a template for inliner
+            origin != JvmLoweredDeclarationOrigin.FOR_INLINE_STATE_MACHINE_TEMPLATE_CAPTURES_CROSSINLINE &&
+            // Continuations are generated for suspendImpls
+            parentAsClass.functions.none { it.name.asString() == name.asString() + SUSPEND_IMPL_NAME_SUFFIX }
+
+    private fun continuationClass(): IrClass =
+        irFunction.body!!.statements[0] as IrClass
+
+    private fun IrFunction.getVisibilityForDefaultArgumentStub(): Int =
+        when (visibility) {
+            Visibilities.PUBLIC -> Opcodes.ACC_PUBLIC
+            JavaVisibilities.PACKAGE_VISIBILITY -> AsmUtil.NO_FLAG_PACKAGE_PRIVATE
+            else -> throw IllegalStateException("Default argument stub should be either public or package private: ${ir2string(this)}")
+        }
+
     private fun calculateMethodFlags(isStatic: Boolean): Int {
         if (irFunction.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER) {
-            return Opcodes.ACC_PUBLIC or Opcodes.ACC_SYNTHETIC.let {
+            return irFunction.getVisibilityForDefaultArgumentStub() or Opcodes.ACC_SYNTHETIC.let {
                 if (irFunction is IrConstructor) it else it or Opcodes.ACC_STATIC
             }
         }

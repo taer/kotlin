@@ -4,23 +4,23 @@ FILE: enumValues.kt
             super<R|kotlin/Any|>()
         }
 
-        public final enum entry FIRST : R|kotlin/Any| {
-            public constructor(): R|MyEnum.FIRST| {
-                super<R|kotlin/Any|>()
+        public final static enum entry FIRST: R|MyEnum| = object : R|MyEnum| {
+            private constructor(): R|anonymous| {
+                super<R|MyEnum|>()
             }
 
         }
 
-        public final enum entry SECOND : R|kotlin/Any| {
-            public constructor(): R|MyEnum.SECOND| {
-                super<R|kotlin/Any|>()
+        public final static enum entry SECOND: R|MyEnum| = object : R|MyEnum| {
+            private constructor(): R|anonymous| {
+                super<R|MyEnum|>()
             }
 
         }
 
-        public final enum entry LAST : R|kotlin/Any| {
-            public constructor(): R|MyEnum.LAST| {
-                super<R|kotlin/Any|>()
+        public final static enum entry LAST: R|MyEnum| = object : R|MyEnum| {
+            private constructor(): R|anonymous| {
+                super<R|MyEnum|>()
             }
 
         }

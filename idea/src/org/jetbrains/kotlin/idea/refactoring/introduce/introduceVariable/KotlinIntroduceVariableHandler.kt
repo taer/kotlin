@@ -16,6 +16,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
+import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.refactoring.HelpID
 import com.intellij.refactoring.RefactoringActionHandler
@@ -551,6 +552,7 @@ object KotlinIntroduceVariableHandler : RefactoringActionHandler {
                     runWriteAction { addTypeArgumentsIfNeeded(initializer, typeArgumentList) }
                 }
 
+                CodeStyleManager.getInstance(project).reformat(declaration)
                 if (editor != null && !replaceOccurrence) {
                     editor.caretModel.moveToOffset(declaration.endOffset)
                 }

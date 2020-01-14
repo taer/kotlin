@@ -219,8 +219,7 @@ fun IrTypeParametersContainer.copyTypeParameters(
     parameterMap: Map<IrTypeParameter, IrTypeParameter>? = null
 ): List<IrTypeParameter> {
     val shift = typeParameters.size
-    val oldToNewParameterMap = mutableMapOf<IrTypeParameter, IrTypeParameter>()
-    parameterMap?.let { oldToNewParameterMap.putAll(it) }
+    val oldToNewParameterMap = parameterMap.orEmpty().toMutableMap()
     // Any type parameter can figure in a boundary type for any other parameter.
     // Therefore, we first copy the parameters themselves, then set up their supertypes.
     val newTypeParameters = srcTypeParameters.mapIndexed { i, sourceParameter ->

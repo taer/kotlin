@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeParametersOwner
+import org.jetbrains.kotlin.fir.declarations.expandedConeType
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
 import org.jetbrains.kotlin.fir.expressions.impl.FirThisReceiverExpressionImpl
@@ -21,13 +22,11 @@ import org.jetbrains.kotlin.fir.scopes.impl.FirCompositeScope
 import org.jetbrains.kotlin.fir.scopes.impl.FirStaticScope
 import org.jetbrains.kotlin.fir.scopes.scope
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirResolvedTypeRefImpl
+import org.jetbrains.kotlin.name.ClassId
 
 interface ReceiverValue {
     val type: ConeKotlinType
@@ -63,24 +62,38 @@ class ExpressionReceiverValue(
     override val receiverExpression: FirExpression
         get() = explicitReceiverExpression
 
+    private fun getClassSymbolWithStaticScope(
+        classId: ClassId,
+        useSiteSession: FirSession,
+        scopeSession: ScopeSession
+    ): Pair<FirClassSymbol<*>?, FirScope?> {
+        val symbol = useSiteSession.firSymbolProvider.getClassLikeSymbolByFqName(classId) ?: return null to null
+        if (symbol is FirTypeAliasSymbol) {
+            val expansionSymbol = symbol.fir.expandedConeType?.lookupTag?.toSymbol(useSiteSession)
+            if (expansionSymbol != null) {
+                return getClassSymbolWithStaticScope(expansionSymbol.classId, useSiteSession, scopeSession)
+            }
+        } else {
+            return (symbol as? FirClassSymbol<*>)?.let {
+                it to it.fir.scope(ConeSubstitutor.Empty, useSiteSession, scopeSession)
+            } ?: (null to null)
+        }
+
+        return null to null
+    }
+
     override fun scope(useSiteSession: FirSession, scopeSession: ScopeSession): FirScope? {
         val qualifiedReceiver = explicitReceiverExpression as? FirResolvedQualifier
         val classId = qualifiedReceiver?.classId
         if (classId != null) {
-            val lookupTag = ConeClassLikeLookupTagImpl(classId)
-            val classSymbol = lookupTag.toSymbol(useSiteSession) as? FirRegularClassSymbol
-            val klass = classSymbol?.fir
-            if (klass != null && klass.classKind != ClassKind.OBJECT) {
-                val delegateType = classSymbol.constructType(emptyArray(), isNullable = false)
-                val delegateTypeScope = delegateType.scope(useSiteSession, scopeSession)
-                if (delegateTypeScope != null) {
-                    val staticScope = FirStaticScope(delegateTypeScope)
-                    if (klass.companionObject == null) {
-                        return staticScope
-                    }
-                    val companionScope = super.scope(useSiteSession, scopeSession) ?: return staticScope
-                    return FirCompositeScope(staticScope, companionScope)
+            val (classSymbol, delegateTypeScope) = getClassSymbolWithStaticScope(classId, useSiteSession, scopeSession)
+            if (classSymbol != null && classSymbol.fir.classKind != ClassKind.OBJECT && delegateTypeScope != null) {
+                val staticScope = FirStaticScope(delegateTypeScope)
+                if ((classSymbol.fir as? FirRegularClass)?.companionObject == null) {
+                    return staticScope
                 }
+                val companionScope = super.scope(useSiteSession, scopeSession) ?: return staticScope
+                return FirCompositeScope(staticScope, companionScope)
             }
         }
         return super.scope(useSiteSession, scopeSession)

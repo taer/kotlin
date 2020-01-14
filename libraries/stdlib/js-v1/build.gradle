@@ -324,6 +324,7 @@ task libraryJarWithIr(type: Zip, dependsOn: libraryJarWithoutIr) {
     }
 }
 
+jar.dependsOn(libraryJarWithIr)
 
 task sourcesJar(type: Jar, dependsOn: compileJs) {
     classifier = 'sources'

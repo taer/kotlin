@@ -85,6 +85,7 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>kotlin-reflect</artifactId>
                 <version>${kotlin.version}</version>
+                <scope>runtime</scope>
             </dependency>
             <!-- OSGI -->
             <dependency>
@@ -97,36 +98,43 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>kotlin-test</artifactId>
                 <version>${kotlin.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>kotlin-test-junit</artifactId>
                 <version>${kotlin.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>kotlin-test-junit5</artifactId>
                 <version>${kotlin.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>kotlin-test-testng</artifactId>
                 <version>${kotlin.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>kotlin-test-js</artifactId>
                 <version>${kotlin.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>kotlin-test-common</artifactId>
                 <version>${kotlin.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>kotlin-test-annotations-common</artifactId>
                 <version>${kotlin.version}</version>
+                <scope>test</scope>
             </dependency>
             <!-- Scripting -->
             <dependency>
